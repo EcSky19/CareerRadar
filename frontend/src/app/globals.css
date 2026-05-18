@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surface hierarchy */
+  --surface-0:   #08090a;
+  --surface-1:   #0f1012;
+  --surface-2:   #16181c;
+  --surface-3:   #1e2127;
+  --surface-4:   #272b33;
+  --surface-5:   #333844;
+
+  /* Text */
+  --text-1:      #f0f2f5;
+  --text-2:      #9aa0ac;
+  --text-3:      #5c6370;
+
+  /* Accents */
+  --accent-blue:   #3b82f6;
+  --accent-green:  #22c55e;
+  --accent-amber:  #f59e0b;
+  --accent-red:    #ef4444;
+  --accent-purple: #a78bfa;
+
+  /* Score colors */
+  --score-high:   #22c55e;
+  --score-mid:    #f59e0b;
+  --score-low:    #ef4444;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--surface-4);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-feature-settings: "ss01", "ss02", "cv01";
+    background: var(--surface-1);
+    color: var(--text-1);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface-1); }
+  ::-webkit-scrollbar-thumb { background: var(--surface-5); border-radius: 2px; }
+
+  /* Selection */
+  ::selection { background: rgba(59,130,246,0.25); color: var(--text-1); }
+}
+
+@layer components {
+  /* ── Card ─────────────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-surface-2 border border-surface-4 rounded-lg;
+  }
+
+  /* ── Stat card ─────────────────────────────────────────────────────────── */
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+
+  /* ── Table ────────────────────────────────────────────────────────────── */
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table thead tr {
+    @apply border-b border-surface-4;
+  }
+
+  .data-table thead th {
+    @apply text-left py-3 px-4 text-text-3 font-mono text-2xs uppercase tracking-wider font-medium;
+  }
+
+  .data-table tbody tr {
+    @apply border-b border-surface-4/50 hover:bg-surface-3/60 transition-colors cursor-pointer;
+  }
+
+  .data-table tbody td {
+    @apply py-3 px-4 text-text-2;
+  }
+
+  /* ── Pill / Badge ─────────────────────────────────────────────────────── */
+  .pill {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-2xs font-mono font-medium;
+  }
+
+  .pill-blue   { @apply pill bg-blue-500/10 text-blue-400 border border-blue-500/20; }
+  .pill-green  { @apply pill bg-green-500/10 text-green-400 border border-green-500/20; }
+  .pill-amber  { @apply pill bg-amber-500/10 text-amber-400 border border-amber-500/20; }
+  .pill-red    { @apply pill bg-red-500/10 text-red-400 border border-red-500/20; }
+  .pill-purple { @apply pill bg-purple-500/10 text-purple-400 border border-purple-500/20; }
+  .pill-muted  { @apply pill bg-surface-4 text-text-3 border border-surface-5; }
+
+  /* ── Button ───────────────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary { @apply btn bg-accent-blue text-white hover:bg-blue-500; }
+  .btn-ghost   { @apply btn bg-transparent text-text-2 hover:bg-surface-3 hover:text-text-1 border border-surface-4; }
+  .btn-danger  { @apply btn bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20; }
+
+  /* ── Input ────────────────────────────────────────────────────────────── */
+  .input {
+    @apply w-full bg-surface-3 border border-surface-4 rounded px-3 py-2 text-sm text-text-1
+           placeholder:text-text-3 focus:outline-none focus:border-accent-blue transition-colors;
+  }
+
+  /* ── Section header ───────────────────────────────────────────────────── */
+  .section-header {
+    @apply flex items-center justify-between px-6 py-5 border-b border-surface-4;
+  }
+
+  .page-title {
+    @apply text-lg font-semibold text-text-1 tracking-tight;
+  }
+
+  /* ── Score ring helper classes ─────────────────────────────────────────── */
+  .score-text-high  { @apply text-green-400; }
+  .score-text-mid   { @apply text-amber-400; }
+  .score-text-low   { @apply text-red-400; }
+}
+
+/* ── Score badge ──────────────────────────────────────────────────────────── */
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-family: var(--font-geist-mono);
+  font-weight: 700;
+  border: 2px solid;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-4) 50%, var(--surface-3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 4px;
+}

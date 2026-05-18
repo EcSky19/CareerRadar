@@ -1,0 +1,33 @@
+name: Daily Ingestion
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 6:00 AM UTC every day
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Trigger ingestion run
+        run: |
+          echo "Triggering Career Radar ingestion at $(date -u)"
+
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST "${{ secrets.API_URL }}/api/v1/ingestion/run" \
+            -H "Authorization: Bearer ${{ secrets.SERVICE_ROLE_JWT }}" \
+            -H "Content-Type: application/json")
+
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")
+
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "ERROR: Ingestion trigger failed with HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          echo "SUCCESS: Ingestion started"
