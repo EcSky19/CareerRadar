@@ -11,6 +11,10 @@ import {
   Filter, ChevronDown, Info
 } from 'lucide-react'
 
+const STATUS_OPTIONS: ApplicationStatus[] = [
+  'not_applied', 'saved', 'applied', 'interview', 'rejected', 'offer',
+]
+
 export default function JobsPage() {
   const [matches, setMatches]      = useState<JobMatch[]>([])
   const [loading, setLoading]      = useState(true)
