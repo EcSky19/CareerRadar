@@ -1,17 +1,18 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { Sidebar } from '@/components/Sidebar'
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+
 export const metadata: Metadata = {
-  title: 'Personal Job Hunter',
+  title: 'Career Radar',
   description: 'Automated job monitoring and resume optimization',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" className={inter.variable}>
       <body className="bg-surface-1 text-text-1 antialiased">
         <div className="flex h-screen overflow-hidden">
           <Sidebar />
