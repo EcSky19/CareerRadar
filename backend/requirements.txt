@@ -5,8 +5,8 @@ python-multipart==0.0.9
 
 # ── Database ─────────────────────────────────────────────────────────────────
 sqlalchemy[asyncio]==2.0.30
-asyncpg==0.28.0                  # 0.28 ships pre-built wheels for Python 3.11/3.12
-psycopg2-binary==2.9.9           # binary driver, zero compilation needed
+psycopg2-binary==2.9.9           # pre-built binary, no gcc needed
+aiopg==1.4.0                     # async wrapper around psycopg2, pure Python install
 alembic==1.13.1
 
 # ── Auth ─────────────────────────────────────────────────────────────────────

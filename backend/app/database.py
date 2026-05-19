@@ -4,13 +4,25 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Ensure the URL uses the asyncpg driver prefix.
-# Supabase gives you  postgresql://...  but SQLAlchemy needs  postgresql+asyncpg://
+# Normalise the URL to use the psycopg2 async dialect.
+# Supabase provides  postgresql://  or  postgres://
+# SQLAlchemy async needs  postgresql+psycopg2://  for sync-wrapped async
+# or  postgresql+asyncpg://  for pure async.
+# Since asyncpg won't build on Render's free/starter image without gcc,
+# we use psycopg2 via the aiopg async wrapper instead.
 _url = settings.database_url
-if _url.startswith("postgresql://"):
-    _url = _url.replace("postgresql://", "postgresql+asyncpg://", 1)
-elif _url.startswith("postgres://"):
-    _url = _url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+# Strip any existing driver suffix first
+for prefix in (
+    "postgresql+asyncpg://",
+    "postgresql+psycopg2://",
+    "postgresql+aiopg://",
+    "postgresql://",
+    "postgres://",
+):
+    if _url.startswith(prefix):
+        _url = "postgresql+psycopg2://" + _url[len(prefix):]
+        break
 
 engine = create_async_engine(
     _url,
@@ -18,6 +30,8 @@ engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,
+    # psycopg2 requires this flag when used with SQLAlchemy async
+    pool_use_lifo=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(
