@@ -4,11 +4,19 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# Ensure the URL uses the asyncpg driver prefix.
+# Supabase gives you  postgresql://...  but SQLAlchemy needs  postgresql+asyncpg://
+_url = settings.database_url
+if _url.startswith("postgresql://"):
+    _url = _url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif _url.startswith("postgres://"):
+    _url = _url.replace("postgres://", "postgresql+asyncpg://", 1)
+
 engine = create_async_engine(
-    settings.database_url,
+    _url,
     echo=settings.debug,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True,
 )
 
