@@ -7,17 +7,37 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v
 
 async function getToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
-  // Supabase stores the session in localStorage
-  const raw = localStorage.getItem(
-    `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`
-  )
-  if (!raw) return null
+  // Supabase can store the session under different key formats
+  // Try all known patterns to find the token
   try {
-    const session = JSON.parse(raw)
-    return session?.access_token ?? null
+    // Pattern 1: sb-{project-ref}-auth-token
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]
+    if (projectRef) {
+      const raw = localStorage.getItem(`sb-${projectRef}-auth-token`)
+      if (raw) {
+        const session = JSON.parse(raw)
+        if (session?.access_token) return session.access_token
+      }
+    }
+    // Pattern 2: scan all localStorage keys for supabase session
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.includes('auth-token') || key.includes('supabase'))) {
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          // Handle both direct session and nested session formats
+          const token = parsed?.access_token
+            ?? parsed?.session?.access_token
+            ?? parsed?.data?.session?.access_token
+          if (token) return token
+        }
+      }
+    }
   } catch {
-    return null
+    // ignore parse errors
   }
+  return null
 }
 
 async function request<T>(
