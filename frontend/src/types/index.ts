@@ -177,4 +177,5 @@ export interface UserProfile {
   alert_frequency: string
   minimum_match_score: number
   notifications_enabled: boolean
+  created_at?: string
 }
