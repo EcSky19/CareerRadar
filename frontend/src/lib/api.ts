@@ -7,6 +7,34 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v
 
 async function getToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
+  try {
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]
+    if (projectRef) {
+      const raw = localStorage.getItem(`sb-${projectRef}-auth-token`)
+      if (raw) {
+        const session = JSON.parse(raw)
+        if (session?.access_token) return session.access_token
+      }
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.includes('auth-token') || key.includes('supabase'))) {
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          const token = parsed?.access_token
+            ?? parsed?.session?.access_token
+            ?? parsed?.data?.session?.access_token
+          if (token) return token
+        }
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null
+}
+  if (typeof window === 'undefined') return null
   // Supabase can store the session under different key formats
   // Try all known patterns to find the token
   try {
