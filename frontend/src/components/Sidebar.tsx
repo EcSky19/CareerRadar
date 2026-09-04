@@ -9,14 +9,14 @@ import {
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/jobs',       label: 'Job Matches',  icon: Briefcase },
-  { href: '/companies',  label: 'Companies',    icon: Building2 },
-  { href: '/profiles',   label: 'Profiles',     icon: Target },
-  { href: '/resumes',    label: 'Resume AI',    icon: FileText },
-  { href: '/tracker',    label: 'Tracker',      icon: Kanban },
-  { href: '/logs',       label: 'Logs',         icon: Activity },
-  { href: '/settings',   label: 'Settings',     icon: Settings },
+  { href: '/dashboard',  label: 'Dashboard',     icon: LayoutDashboard },
+  { href: '/jobs',       label: 'Career Matches', icon: Briefcase },
+  { href: '/companies',  label: 'Companies',      icon: Building2 },
+  { href: '/profiles',   label: 'Profiles',       icon: Target },
+  { href: '/resumes',    label: 'Resume AI',      icon: FileText },
+  { href: '/tracker',    label: 'Tracker',        icon: Kanban },
+  { href: '/logs',       label: 'Logs',           icon: Activity },
+  { href: '/settings',   label: 'Settings',       icon: Settings },
 ]
 
 export function Sidebar() {
@@ -24,20 +24,18 @@ export function Sidebar() {
 
   return (
     <aside className="w-[220px] shrink-0 flex flex-col bg-surface-0 border-r border-surface-4 h-full">
-      {/* Logo */}
       <div className="px-5 py-5 border-b border-surface-4">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded bg-accent-blue flex items-center justify-center shrink-0">
             <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-1 leading-tight">Job Hunter</p>
-            <p className="text-2xs text-text-3 font-mono">personal</p>
+            <p className="text-sm font-semibold text-text-1 leading-tight">Career Radar</p>
+            <p className="text-2xs text-text-3 font-mono">career-radar · v0.1</p>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
@@ -59,7 +57,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="px-5 py-4 border-t border-surface-4">
         <p className="text-2xs text-text-3 font-mono">v0.1.0</p>
       </div>
