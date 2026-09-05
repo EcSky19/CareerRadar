@@ -369,7 +369,6 @@ async def _run_matching_for_new_jobs(
     profile_result = await db.execute(
         select(TargetProfile)
         .where(
-            TargetProfile.user_id == company.user_id,
             TargetProfile.is_active == True,
         )
         .options(
