@@ -6,7 +6,7 @@ import { Company } from '@/types'
 import { formatRelative, PROVIDER_LABELS } from '@/lib/utils'
 import {
   Plus, Pause, Play, Trash2, RefreshCw, X,
-  CheckCircle, AlertCircle, Wand2
+  CheckCircle, AlertCircle, Wand2, Pencil
 } from 'lucide-react'
 
 export default function CompaniesPage() {
@@ -14,6 +14,7 @@ export default function CompaniesPage() {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading]      = useState(true)
   const [showForm, setShowForm]    = useState(false)
+  const [editingId, setEditingId]  = useState<string | null>(null)
   const [detecting, setDetecting]  = useState(false)
 
   // Form state
@@ -33,6 +34,20 @@ export default function CompaniesPage() {
     }).finally(() => setLoading(false))
   }, [])
 
+  async function startEdit(c: any) {
+    setForm({ name: c.name, careers_url: c.careers_url ?? '', ats_provider: c.ats_provider, ats_slug: c.ats_slug ?? '', priority: c.priority, notes: c.notes ?? '', category_ids: c.categories?.map((cat: any) => cat.id) ?? [] })
+    setEditingId(c.id)
+    setShowForm(true)
+    setDetectResult(null)
+  }
+  async function saveEdit() {
+    if (!editingId) return
+    const updated = await companiesApi.update(editingId, form) as any
+    setCompanies(prev => prev.map(c => c.id === editingId ? updated : c))
+    setShowForm(false); setEditingId(null)
+    setForm({ name: '', careers_url: '', ats_provider: 'unknown', ats_slug: '', priority: 'medium', notes: '', category_ids: [] })
+    setDetectResult(null)
+  }
   async function detectAts() {
     if (!form.careers_url) return
     setDetecting(true)
@@ -185,10 +200,10 @@ export default function CompaniesPage() {
             </div>
 
             <div className="flex gap-2 pt-1">
-              <button onClick={createCompany} disabled={!form.name} className="btn-primary">
-                Add Company
+              <button onClick={editingId ? saveEdit : createCompany} disabled={!form.name} className="btn-primary">
+                {editingId ? 'Save Changes' : 'Add Company'}
               </button>
-              <button onClick={() => { setShowForm(false); setDetectResult(null) }} className="btn-ghost">
+              <button onClick={() => { setShowForm(false); setDetectResult(null); setEditingId(null); setForm({ name: '', careers_url: '', ats_provider: 'unknown', ats_slug: '', priority: 'medium', notes: '', category_ids: [] }) }} className="btn-ghost">
                 Cancel
               </button>
             </div>
@@ -264,6 +279,7 @@ export default function CompaniesPage() {
                   </td>
                   <td>
                     <div className="flex items-center gap-1">
+                      <button onClick={() => startEdit(c)} className="p-1 rounded hover:bg-surface-4 transition-colors" title="Edit"><Pencil className="w-3.5 h-3.5 text-text-3 hover:text-blue-400" /></button>
                       <button
                         onClick={() => toggleActive(c)}
                         className="p-1 rounded hover:bg-surface-4 transition-colors"

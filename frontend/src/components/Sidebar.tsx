@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import { createClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Building2, Target, Briefcase,
-  FileText, Kanban, Activity, Settings, Zap,
+  FileText, Kanban, Activity, Settings, Zap, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,8 +21,25 @@ const NAV_ITEMS = [
   { href: '/settings',   label: 'Settings',       icon: Settings },
 ]
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export function Sidebar() {
   const pathname = usePathname()
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null)
+    })
+  }, [])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
 
   return (
     <aside className="w-[220px] shrink-0 flex flex-col bg-surface-0 border-r border-surface-4 h-full">
@@ -57,8 +76,25 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-5 py-4 border-t border-surface-4">
-        <p className="text-2xs text-text-3 font-mono">v0.1.0</p>
+      <div className="px-4 py-4 border-t border-surface-4">
+        {userEmail && (
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-2xs text-text-3 font-mono truncate">{userEmail}</p>
+              <p className="text-2xs text-text-3 font-mono">v0.1.0</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded hover:bg-surface-3 transition-colors ml-2 flex-shrink-0"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5 text-text-3 hover:text-red-400" />
+            </button>
+          </div>
+        )}
+        {!userEmail && (
+          <p className="text-2xs text-text-3 font-mono">v0.1.0</p>
+        )}
       </div>
     </aside>
   )
