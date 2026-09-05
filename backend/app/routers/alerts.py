@@ -22,7 +22,7 @@ async def list_alerts(
 ):
     q = (
         select(Alert)
-        .where(Alert.user_id == user.id)
+        .where(Alert.user_id == user['id'])
         .order_by(desc(Alert.created_at))
         .limit(limit)
     )
@@ -52,11 +52,11 @@ async def alert_stats(
     db: AsyncSession  = Depends(get_db),
 ):
     from sqlalchemy import func
-    total = await db.scalar(select(func.count()).where(Alert.user_id == user.id))
+    total = await db.scalar(select(func.count()).where(Alert.user_id == user['id']))
     sent  = await db.scalar(select(func.count()).where(
-        Alert.user_id == user.id, Alert.status == "sent"
+        Alert.user_id == user['id'], Alert.status == "sent"
     ))
     failed = await db.scalar(select(func.count()).where(
-        Alert.user_id == user.id, Alert.status == "failed"
+        Alert.user_id == user['id'], Alert.status == "failed"
     ))
     return {"total": total or 0, "sent": sent or 0, "failed": failed or 0}

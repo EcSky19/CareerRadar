@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js'
 import { Zap } from 'lucide-react'
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 export default function LoginPage() {
@@ -17,7 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -32,7 +32,7 @@ export default function LoginPage() {
         if (error) throw error
         window.location.href = '/dashboard'
       }
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message ?? 'Something went wrong')
     } finally {
       setLoading(false)

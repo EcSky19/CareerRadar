@@ -68,7 +68,7 @@ async def list_job_matches(
         .join(Job, Job.id == JobMatch.job_id)
         .join(TargetProfile, TargetProfile.id == JobMatch.target_profile_id)
         .where(
-            JobMatch.user_id == user.id,
+            JobMatch.user_id == user['id'],
             JobMatch.match_score.between(min_score, max_score),
         )
         .order_by(JobMatch.match_score.desc(), Job.first_seen_at.desc())
@@ -91,7 +91,7 @@ async def list_job_matches(
     job_ids = [r[1].id for r in rows]
     app_result = await db.execute(
         select(ApplicationStatus).where(
-            ApplicationStatus.user_id == user.id,
+            ApplicationStatus.user_id == user['id'],
             ApplicationStatus.job_id.in_(job_ids),
         )
     ) if job_ids else None
@@ -135,23 +135,23 @@ async def match_stats(
 ):
     """Dashboard summary counts."""
     total = await db.scalar(
-        select(func.count()).where(JobMatch.user_id == user.id)
+        select(func.count()).where(JobMatch.user_id == user['id'])
     )
     high = await db.scalar(
         select(func.count()).where(
-            JobMatch.user_id == user.id,
+            JobMatch.user_id == user['id'],
             JobMatch.match_score >= 80
         )
     )
     new_today = await db.scalar(
         select(func.count()).where(
-            JobMatch.user_id == user.id,
+            JobMatch.user_id == user['id'],
             JobMatch.created_at >= func.now() - __import__("sqlalchemy").text("interval '1 day'"),
         )
     )
     applied = await db.scalar(
         select(func.count()).where(
-            ApplicationStatus.user_id == user.id,
+            ApplicationStatus.user_id == user['id'],
             ApplicationStatus.status == "applied",
         )
     )
@@ -171,7 +171,7 @@ async def save_match(
 ):
     await db.execute(
         update(JobMatch)
-        .where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+        .where(JobMatch.id == match_id, JobMatch.user_id == user['id'])
         .values(is_saved=True, is_dismissed=False)
     )
     await db.commit()
@@ -186,7 +186,7 @@ async def dismiss_match(
 ):
     await db.execute(
         update(JobMatch)
-        .where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+        .where(JobMatch.id == match_id, JobMatch.user_id == user['id'])
         .values(is_dismissed=True, is_saved=False)
     )
     await db.commit()
@@ -201,7 +201,7 @@ async def unsave_match(
 ):
     await db.execute(
         update(JobMatch)
-        .where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+        .where(JobMatch.id == match_id, JobMatch.user_id == user['id'])
         .values(is_saved=False)
     )
     await db.commit()
@@ -218,7 +218,7 @@ async def get_job(
     result = await db.execute(
         select(Job)
         .join(Company, Company.id == Job.company_id)
-        .where(Job.id == job_id, Company.user_id == user.id)
+        .where(Job.id == job_id, Company.user_id == user['id'])
     )
     job = result.scalar_one_or_none()
     if not job:
@@ -227,7 +227,7 @@ async def get_job(
     match_result = await db.execute(
         select(JobMatch).where(
             JobMatch.job_id == job_id,
-            JobMatch.user_id == user.id,
+            JobMatch.user_id == user['id'],
         ).order_by(JobMatch.match_score.desc()).limit(1)
     )
     match = match_result.scalar_one_or_none()
@@ -235,7 +235,7 @@ async def get_job(
     app_result = await db.execute(
         select(ApplicationStatus).where(
             ApplicationStatus.job_id == job_id,
-            ApplicationStatus.user_id == user.id,
+            ApplicationStatus.user_id == user['id'],
         )
     )
     app = app_result.scalar_one_or_none()
@@ -274,7 +274,7 @@ async def upsert_application(
     stmt = (
         pg_insert(ApplicationStatus)
         .values(
-            user_id=user.id,
+            user_id=user['id'],
             job_id=job_id,
             status=payload.status,
             applied_at=payload.applied_at,
@@ -306,7 +306,7 @@ async def list_tracked_applications(
     q = (
         select(ApplicationStatus, Job)
         .join(Job, Job.id == ApplicationStatus.job_id)
-        .where(ApplicationStatus.user_id == user.id)
+        .where(ApplicationStatus.user_id == user['id'])
         .where(ApplicationStatus.status != "not_applied")
         .order_by(ApplicationStatus.updated_at.desc())
     )

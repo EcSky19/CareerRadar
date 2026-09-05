@@ -43,7 +43,7 @@ export default function ProfilesPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
-    profilesApi.list(false).then((p: any) => setProfiles(p))
+    profilesApi.list().then((p: any) => setProfiles(p))
       .finally(() => setLoading(false))
   }, [])
 
@@ -85,6 +85,7 @@ export default function ProfilesPage() {
   async function deleteProfile(id: string) {
     if (!confirm('Delete this profile?')) return
     await profilesApi.delete(id)
+    setProfiles(prev => prev.filter((p: any) => p.id !== id))
     setProfiles(prev => prev.filter(p => p.id !== id))
   }
 

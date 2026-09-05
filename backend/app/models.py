@@ -177,7 +177,7 @@ class TargetProfile(Base):
     desired_keywords: Mapped[List[str]] = mapped_column(ARRAY(String), default=list)
     desired_locations: Mapped[List[str]]= mapped_column(ARRAY(String), default=list)
     excluded_keywords: Mapped[List[str]]= mapped_column(ARRAY(String), default=list)
-    role_types: Mapped[List[str]]       = mapped_column(ARRAY(String), default=list)
+    role_types: Mapped[List[str]]       = mapped_column(ARRAY(SAEnum(*['internship','new_grad','full_time','coop','contract'], name='role_type_enum', create_type=False)), default=list)
     remote_preference: Mapped[str]      = mapped_column(
                                             SAEnum(*REMOTE_PREFS, name="remote_preference_enum"),
                                             default="any", nullable=False)

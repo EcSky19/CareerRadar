@@ -98,7 +98,7 @@ class TargetProfileResponse(BaseModel):
 async def _get_profile_or_404(profile_id: UUID, user: CurrentUser, db: AsyncSession) -> TargetProfile:
     result = await db.execute(
         select(TargetProfile)
-        .where(TargetProfile.id == profile_id, TargetProfile.user_id == user.id)
+        .where(TargetProfile.id == profile_id, TargetProfile.user_id == user['id'])
         .options(
             selectinload(TargetProfile.category_filters),
             selectinload(TargetProfile.company_filters),
@@ -147,7 +147,7 @@ async def create_profile(
     db: AsyncSession = Depends(get_db),
 ):
     profile = TargetProfile(
-        user_id=user.id,
+        user_id=user['id'],
         name=payload.name,
         desired_titles=payload.desired_titles,
         desired_keywords=payload.desired_keywords,
@@ -174,7 +174,7 @@ async def list_profiles(
 ):
     q = (
         select(TargetProfile)
-        .where(TargetProfile.user_id == user.id)
+        .where(TargetProfile.user_id == user['id'])
         .options(
             selectinload(TargetProfile.category_filters),
             selectinload(TargetProfile.company_filters),
@@ -226,7 +226,15 @@ async def delete_profile(
     user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    profile = await _get_profile_or_404(profile_id, user, db)
+    result = await db.execute(
+        select(TargetProfile).where(
+            TargetProfile.id == profile_id,
+            TargetProfile.user_id == user['id']
+        )
+    )
+    profile = result.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Target profile not found")
     await db.delete(profile)
     await db.commit()
 
@@ -239,7 +247,7 @@ async def duplicate_profile(
 ):
     source = await _get_profile_or_404(profile_id, user, db)
     copy = TargetProfile(
-        user_id=user.id,
+        user_id=user['id'],
         name=f"{source.name} (Copy)",
         desired_titles=list(source.desired_titles),
         desired_keywords=list(source.desired_keywords),

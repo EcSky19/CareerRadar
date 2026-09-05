@@ -40,7 +40,7 @@ async def upload_resume(
     parsed = await parse_resume(content, file.filename)
 
     resume = Resume(
-        user_id=user.id,
+        user_id=user['id'],
         name=name,
         file_format=ext,
         file_size_bytes=len(content),
@@ -75,7 +75,7 @@ async def list_resumes(
 ):
     result = await db.execute(
         select(Resume)
-        .where(Resume.user_id == user.id, Resume.is_archived == False)
+        .where(Resume.user_id == user['id'], Resume.is_archived == False)
         .order_by(Resume.created_at.desc())
     )
     resumes = result.scalars().all()
@@ -159,7 +159,7 @@ async def analyze_resume(
 
     # Persist analysis
     analysis = ResumeJobAnalysis(
-        user_id=user.id,
+        user_id=user['id'],
         resume_id=resume_id,
         job_id=payload.job_id,
         job_description_text=payload.job_description,
@@ -268,7 +268,7 @@ async def optimize_resume(
     analysis_result = await db.execute(
         select(ResumeJobAnalysis).where(
             ResumeJobAnalysis.id == analysis_id,
-            ResumeJobAnalysis.user_id == user.id,
+            ResumeJobAnalysis.user_id == user['id'],
         )
     )
     analysis_row = analysis_result.scalar_one_or_none()
@@ -305,7 +305,7 @@ async def optimize_resume(
 
     version = ResumeVersion(
         resume_id=resume_id,
-        user_id=user.id,
+        user_id=user['id'],
         version_name=version_name,
         target_company=analysis_row.job_company_input,
         target_job_title=analysis_row.job_title_input,
@@ -337,7 +337,7 @@ async def list_versions(
     await _get_resume_or_404(resume_id, user, db)
     result = await db.execute(
         select(ResumeVersion)
-        .where(ResumeVersion.resume_id == resume_id, ResumeVersion.user_id == user.id)
+        .where(ResumeVersion.resume_id == resume_id, ResumeVersion.user_id == user['id'])
         .order_by(ResumeVersion.created_at.desc())
     )
     return [
@@ -363,7 +363,7 @@ async def list_analyses(
     await _get_resume_or_404(resume_id, user, db)
     result = await db.execute(
         select(ResumeJobAnalysis)
-        .where(ResumeJobAnalysis.resume_id == resume_id, ResumeJobAnalysis.user_id == user.id)
+        .where(ResumeJobAnalysis.resume_id == resume_id, ResumeJobAnalysis.user_id == user['id'])
         .order_by(ResumeJobAnalysis.created_at.desc())
     )
     return [
@@ -383,7 +383,7 @@ async def list_analyses(
 
 async def _get_resume_or_404(resume_id: UUID, user: CurrentUser, db: AsyncSession) -> Resume:
     result = await db.execute(
-        select(Resume).where(Resume.id == resume_id, Resume.user_id == user.id)
+        select(Resume).where(Resume.id == resume_id, Resume.user_id == user['id'])
     )
     r = result.scalar_one_or_none()
     if not r:

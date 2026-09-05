@@ -25,7 +25,7 @@ async def _get_company_or_404(
 ) -> Company:
     result = await db.execute(
         select(Company)
-        .where(Company.id == company_id, Company.user_id == user.id)
+        .where(Company.id == company_id, Company.user_id == user['id'])
         .options(selectinload(Company.category_assignments).selectinload(
             CompanyCategoryAssignment.category))
     )
@@ -56,7 +56,7 @@ async def create_company(
     db: AsyncSession = Depends(get_db),
 ):
     company = Company(
-        user_id=user.id,
+        user_id=user['id'],
         name=payload.name,
         domain=payload.domain,
         careers_url=payload.careers_url,
@@ -87,7 +87,7 @@ async def list_companies(
 ):
     q = (
         select(Company)
-        .where(Company.user_id == user.id)
+        .where(Company.user_id == user['id'])
         .options(selectinload(Company.category_assignments).selectinload(
             CompanyCategoryAssignment.category))
         .order_by(Company.name)

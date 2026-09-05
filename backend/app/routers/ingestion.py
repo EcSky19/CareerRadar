@@ -37,13 +37,13 @@ async def trigger_full_run(
     import uuid
 
     # Create a run record immediately so caller has an ID to poll
-    run = IngestionRun(triggered_by=f"manual:{user.id}", status="running")
+    run = IngestionRun(triggered_by=f"manual:{user['id']}", status="running")
     db.add(run)
     await db.commit()
     run_id = str(run.id)
 
     background_tasks.add_task(
-        _background_full_run, run_id=run.id, user_id=user.id
+        _background_full_run, run_id=run.id, user_id=user['id']
     )
 
     return RunTriggerResponse(
@@ -64,7 +64,7 @@ async def trigger_company_run(
     result = await db.execute(
         select(Company).where(
             Company.id == company_id,
-            Company.user_id == user.id,
+            Company.user_id == user['id'],
         )
     )
     if not result.scalar_one_or_none():
@@ -129,7 +129,7 @@ async def get_run(
         .join(Company, Company.id == CompanyCheckLog.company_id)
         .where(
             CompanyCheckLog.ingestion_run_id == run_id,
-            Company.user_id == user.id,
+            Company.user_id == user['id'],
         )
         .order_by(CompanyCheckLog.started_at)
     )
@@ -176,7 +176,7 @@ async def list_recent_errors(
     result = await db.execute(
         select(SourceError, Company)
         .join(Company, Company.id == SourceError.company_id)
-        .where(Company.user_id == user.id)
+        .where(Company.user_id == user['id'])
         .order_by(desc(SourceError.occurred_at))
         .limit(limit)
     )

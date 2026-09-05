@@ -1,8 +1,3 @@
-/**
- * API client for Personal Job Hunter backend.
- * All requests are authenticated via Supabase JWT from localStorage.
- */
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
 
 async function getToken(): Promise<string | null> {
@@ -29,173 +24,107 @@ async function getToken(): Promise<string | null> {
         }
       }
     }
-  } catch {
-    // ignore parse errors
-  }
-  return null
-}
-  if (typeof window === 'undefined') return null
-  // Supabase can store the session under different key formats
-  // Try all known patterns to find the token
-  try {
-    // Pattern 1: sb-{project-ref}-auth-token
-    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]
-    if (projectRef) {
-      const raw = localStorage.getItem(`sb-${projectRef}-auth-token`)
-      if (raw) {
-        const session = JSON.parse(raw)
-        if (session?.access_token) return session.access_token
-      }
-    }
-    // Pattern 2: scan all localStorage keys for supabase session
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && (key.includes('auth-token') || key.includes('supabase'))) {
-        const raw = localStorage.getItem(key)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          // Handle both direct session and nested session formats
-          const token = parsed?.access_token
-            ?? parsed?.session?.access_token
-            ?? parsed?.data?.session?.access_token
-          if (token) return token
-        }
-      }
-    }
-  } catch {
-    // ignore parse errors
-  }
+  } catch { }
   return null
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getToken()
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers ?? {}),
+      ...options.headers,
     },
   })
-
   if (!res.ok) {
-    let message = `HTTP ${res.status}`
-    try {
-      const err = await res.json()
-      message = err.detail ?? message
-    } catch {}
-    throw new Error(message)
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail ?? `HTTP ${res.status}`)
   }
-
-  if (res.status === 204) return undefined as unknown as T
-  return res.json()
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return null as T
+  }
+  const text = await res.text()
+  if (!text) return null as T
+  return JSON.parse(text)
 }
 
-// ── Typed helpers ──────────────────────────────────────────────────────────────
-
-const get  = <T>(path: string)                      => request<T>(path)
-const post = <T>(path: string, body?: unknown)       => request<T>(path, { method: 'POST',  body: body ? JSON.stringify(body) : undefined })
-const patch = <T>(path: string, body?: unknown)      => request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined })
-const put  = <T>(path: string, body?: unknown)       => request<T>(path, { method: 'PUT',   body: body ? JSON.stringify(body) : undefined })
-const del  = <T>(path: string)                      => request<T>(path, { method: 'DELETE' })
-
-
-// ── Users ──────────────────────────────────────────────────────────────────────
-export const usersApi = {
-  me:     ()      => get('/users/me'),
-  update: (body: unknown) => patch('/users/me', body),
+async function upload<T>(path: string, file: File, params?: Record<string, string>): Promise<T> {
+  const token = await getToken()
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail ?? `HTTP ${res.status}`)
+  }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return null as T
+  }
+  const text = await res.text()
+  if (!text) return null as T
+  return JSON.parse(text)
 }
 
-
-// ── Companies ─────────────────────────────────────────────────────────────────
 export const companiesApi = {
-  list:       (activeOnly = false) => get(`/companies?active_only=${activeOnly}`),
-  get:        (id: string)         => get(`/companies/${id}`),
-  create:     (body: unknown)      => post('/companies', body),
-  update:     (id: string, body: unknown) => patch(`/companies/${id}`, body),
-  delete:     (id: string)         => del(`/companies/${id}`),
-  pause:      (id: string)         => post(`/companies/${id}/pause`),
-  activate:   (id: string)         => post(`/companies/${id}/activate`),
-  test:       (id: string)         => post(`/companies/${id}/test`),
-  detectAts:  (body: unknown)      => post('/companies/detect-ats', body),
-  categories: ()                   => get('/companies/categories/all'),
+  list:       (p?: Record<string, unknown>) => request<any>(`/companies?${new URLSearchParams((p ?? {}) as Record<string, string>)}`),
+  get:        (id: string)                  => request<any>(`/companies/${id}`),
+  create:     (data: unknown)               => request<any>('/companies', { method: 'POST', body: JSON.stringify(data) }),
+  update:     (id: string, data: unknown)   => request<any>(`/companies/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete:     (id: string)                  => request<any>(`/companies/${id}`, { method: 'DELETE' }),
+  categories: ()                            => request<any[]>('/companies/categories/all'),
+  detectAts:  (data: unknown)               => request<any>('/companies/detect-ats', { method: 'POST', body: JSON.stringify(data) }),
+  pause:      (id: string)                  => request<any>(`/companies/${id}/pause`, { method: 'POST' }),
+  activate:   (id: string)                  => request<any>(`/companies/${id}/activate`, { method: 'POST' }),
+  scan:       (id: string)                  => request<any>(`/companies/${id}/scan`, { method: 'POST' }),
 }
 
-
-// ── Target Profiles ────────────────────────────────────────────────────────────
 export const profilesApi = {
-  list:      (activeOnly = true) => get(`/target-profiles?active_only=${activeOnly}`),
-  get:       (id: string)        => get(`/target-profiles/${id}`),
-  create:    (body: unknown)     => post('/target-profiles', body),
-  update:    (id: string, body: unknown) => patch(`/target-profiles/${id}`, body),
-  delete:    (id: string)        => del(`/target-profiles/${id}`),
-  duplicate: (id: string)        => post(`/target-profiles/${id}/duplicate`),
+  list:      (p?: Record<string, unknown>) => request<any[]>(`/target-profiles?${new URLSearchParams((p ?? {}) as Record<string, string>)}`),
+  get:       (id: string)                => request<any>(`/target-profiles/${id}`),
+  create:    (data: unknown)             => request<any>('/target-profiles', { method: 'POST', body: JSON.stringify(data) }),
+  update:    (id: string, data: unknown) => request<any>(`/target-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete:    (id: string)                => request<any>(`/target-profiles/${id}`, { method: 'DELETE' }),
+  duplicate: (id: string)                => request<any>(`/target-profiles/${id}/duplicate`, { method: 'POST' }),
 }
 
-
-// ── Jobs ───────────────────────────────────────────────────────────────────────
 export const jobsApi = {
-  matches:   (params?: Record<string, unknown>) => {
-    const qs = params ? '?' + new URLSearchParams(params as any).toString() : ''
-    return get(`/jobs/matches${qs}`)
-  },
-  stats:     ()                 => get('/jobs/matches/stats'),
-  getJob:    (id: string)       => get(`/jobs/${id}`),
-  save:      (matchId: string)  => post(`/jobs/matches/${matchId}/save`),
-  dismiss:   (matchId: string)  => post(`/jobs/matches/${matchId}/dismiss`),
-  unsave:    (matchId: string)  => post(`/jobs/matches/${matchId}/unsave`),
-  upsertApp: (jobId: string, body: unknown) => put(`/jobs/${jobId}/application`, body),
-  tracker:   (statusFilter?: string) => {
-    const qs = statusFilter ? `?status_filter=${statusFilter}` : ''
-    return get(`/jobs/tracker/all${qs}`)
-  },
+  matches:   (p?: Record<string, unknown>) => request<any[]>(`/jobs/matches?${new URLSearchParams((p ?? {}) as Record<string, string>)}`),
+  stats:     ()                            => request<any>('/jobs/stats'),
+  tracker:   (p?: Record<string, unknown>) => request<any[]>(`/jobs/tracker?${new URLSearchParams((p ?? {}) as Record<string, string>)}`),
+  save:      (id: string)                  => request<any>(`/jobs/matches/${id}/save`, { method: 'POST' }),
+  unsave:    (id: string)                  => request<any>(`/jobs/matches/${id}/save`, { method: 'DELETE' }),
+  dismiss:   (id: string)                  => request<any>(`/jobs/matches/${id}/dismiss`, { method: 'POST' }),
+  upsertApp: (jobId: string, data: unknown)=> request<any>(`/jobs/${jobId}/application`, { method: 'PUT', body: JSON.stringify(data) }),
 }
 
-
-// ── Ingestion ─────────────────────────────────────────────────────────────────
 export const ingestionApi = {
-  triggerRun:     ()           => post('/ingestion/run'),
-  triggerCompany: (id: string) => post(`/ingestion/run/company/${id}`),
-  runs:           (limit = 20) => get(`/ingestion/runs?limit=${limit}`),
-  getRun:         (id: string) => get(`/ingestion/runs/${id}`),
-  errors:         (limit = 50) => get(`/ingestion/errors?limit=${limit}`),
+  run:        ()           => request<any>('/ingestion/run', { method: 'POST' }),
+  triggerRun: ()           => request<any>('/ingestion/run', { method: 'POST' }),
+  runs:       (limit = 20) => request<any[]>(`/ingestion/logs?limit=${limit}`),
+  logs:       (limit = 20) => request<any[]>(`/ingestion/logs?limit=${limit}`),
+  getRun:     (id: string) => request<any>(`/ingestion/logs/${id}`),
+  status:     ()           => request<any>('/ingestion/status'),
+  errors:     (limit = 30) => request<any[]>(`/ingestion/errors?limit=${limit}`),
 }
 
-
-// ── Alerts ────────────────────────────────────────────────────────────────────
 export const alertsApi = {
-  list:  (limit = 50) => get(`/alerts?limit=${limit}`),
-  stats: ()           => get('/alerts/stats'),
+  list: () => request<any[]>('/alerts'),
 }
 
-
-// ── Resumes ───────────────────────────────────────────────────────────────────
 export const resumesApi = {
-  list:      ()                  => get('/resumes'),
-  get:       (id: string)        => get(`/resumes/${id}`),
-  analyses:  (id: string)        => get(`/resumes/${id}/analyses`),
-  versions:  (id: string)        => get(`/resumes/${id}/versions`),
-  analyze:   (id: string, body: unknown) => post(`/resumes/${id}/analyze`, body),
-  optimize:  (resumeId: string, analysisId: string, versionName?: string) =>
-    post(`/resumes/${resumeId}/optimize/${analysisId}?version_name=${encodeURIComponent(versionName ?? 'Optimized Version')}`),
+  list:     ()                                => request<any[]>('/resumes'),
+  upload:   (file: File, name?: string, isBase?: boolean) => upload<any>('/resumes/upload', file, name ? { name, is_base: String(isBase ?? false) } : undefined),
+  analyze:  (resumeId: string, data: unknown) => request<any>(`/resumes/${resumeId}/analyze`, { method: 'POST', body: JSON.stringify(data) }),
+  optimize: (resumeId: string, analysisId: string, name?: string) => request<any>(`/resumes/${resumeId}/optimize`, { method: 'POST', body: JSON.stringify({ analysis_id: analysisId, name }) }),
+}
 
-  upload: async (file: File, name: string, isBase: boolean) => {
-    const token = await getToken()
-    const form = new FormData()
-    form.append('file', file)
-    form.append('name', name)
-    form.append('is_base', String(isBase))
-
-    const res = await fetch(`${API_BASE}/resumes/upload`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    })
-    if (!res.ok) throw new Error(`Upload failed: HTTP ${res.status}`)
-    return res.json()
-  },
+export const usersApi = {
+  me:     ()              => request<any>('/users/me'),
+  update: (data: unknown) => request<any>('/users/me', { method: 'PATCH', body: JSON.stringify(data) }),
 }

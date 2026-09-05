@@ -38,7 +38,7 @@ export default function ResumesPage() {
   async function handleUpload(file: File) {
     setUploading(true)
     try {
-      const result = await resumesApi.upload(file, file.name.replace(/\.[^.]+$/, ''), resumes.length === 0)
+      const result = await resumesApi.upload(file)
       const updated = await resumesApi.list() as Resume[]
       setResumes(updated)
       setSelected(updated.find(r => r.id === result.id) ?? updated[0])
