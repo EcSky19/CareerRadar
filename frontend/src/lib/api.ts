@@ -106,11 +106,11 @@ export const jobsApi = {
 export const ingestionApi = {
   run:        ()           => request<any>('/ingestion/run', { method: 'POST' }),
   triggerRun: ()           => request<any>('/ingestion/run', { method: 'POST' }),
-  runs:       (limit = 20) => request<any[]>(`/ingestion/logs?limit=${limit}`),
-  logs:       (limit = 20) => request<any[]>(`/ingestion/logs?limit=${limit}`),
-  getRun:     (id: string) => request<any>(`/ingestion/logs/${id}`),
+  runs:       (limit = 20) => request<any[]>(`/ingestion/runs?limit=${limit}`),
+  logs:       (limit = 20) => request<any[]>(`/ingestion/runs?limit=${limit}`),
   status:     ()           => request<any>('/ingestion/status'),
   errors:     (limit = 30) => request<any[]>(`/ingestion/errors?limit=${limit}`),
+  getRun:     (id: string) => request<any>(`/ingestion/runs/${id}`),
 }
 
 export const alertsApi = {
