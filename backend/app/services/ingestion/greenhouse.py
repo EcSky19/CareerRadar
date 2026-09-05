@@ -124,7 +124,7 @@ class GreenhouseAdapter(JobSourceAdapter):
     @staticmethod
     def _extract_employment_type(raw: dict) -> Optional[str]:
         metadata = raw.get("metadata", [])
-        for m in metadata:
+        for m in (metadata or []):
             if isinstance(m, dict) and m.get("name", "").lower() in ("employment type", "job type"):
                 return str(m.get("value", "")).strip() or None
         return None

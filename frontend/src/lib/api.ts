@@ -95,7 +95,7 @@ export const profilesApi = {
 
 export const jobsApi = {
   matches:   (p?: Record<string, unknown>) => request<any[]>(`/jobs/matches?${new URLSearchParams((p ?? {}) as Record<string, string>)}`),
-  stats:     ()                            => request<any>('/jobs/stats'),
+  stats:     ()                            => request<any>('/jobs/matches/stats'),
   tracker:   (p?: Record<string, unknown>) => request<any[]>(`/jobs/tracker?${new URLSearchParams((p ?? {}) as Record<string, string>)}`),
   save:      (id: string)                  => request<any>(`/jobs/matches/${id}/save`, { method: 'POST' }),
   unsave:    (id: string)                  => request<any>(`/jobs/matches/${id}/save`, { method: 'DELETE' }),
@@ -108,7 +108,6 @@ export const ingestionApi = {
   triggerRun: ()           => request<any>('/ingestion/run', { method: 'POST' }),
   runs:       (limit = 20) => request<any[]>(`/ingestion/runs?limit=${limit}`),
   logs:       (limit = 20) => request<any[]>(`/ingestion/runs?limit=${limit}`),
-  status:     ()           => request<any>('/ingestion/status'),
   errors:     (limit = 30) => request<any[]>(`/ingestion/errors?limit=${limit}`),
   getRun:     (id: string) => request<any>(`/ingestion/runs/${id}`),
 }
