@@ -43,7 +43,7 @@ export default function ProfilesPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
-    profilesApi.list().then((p: any) => setProfiles(p))
+    profilesApi.list(false).then((p: any) => setProfiles(p))
       .finally(() => setLoading(false))
   }, [])
 
@@ -85,7 +85,6 @@ export default function ProfilesPage() {
   async function deleteProfile(id: string) {
     if (!confirm('Delete this profile?')) return
     await profilesApi.delete(id)
-    setProfiles(prev => prev.filter((p: any) => p.id !== id))
     setProfiles(prev => prev.filter(p => p.id !== id))
   }
 
@@ -187,9 +186,7 @@ export default function ProfilesPage() {
               tags={form.desired_keywords}
               onChange={tags => setForm(f => ({ ...f, desired_keywords: tags }))}
             />
-            <TagField
-              label="Locations"
-              placeholder="New York, San Francisco, Remote…"
+            <LocationField
               tags={form.desired_locations}
               onChange={tags => setForm(f => ({ ...f, desired_locations: tags }))}
             />
@@ -328,6 +325,169 @@ function TagField({ label, placeholder, tags, onChange, danger }: {
               className={`pill ${danger ? 'pill-red' : 'pill-blue'} cursor-pointer`}
               onClick={() => onChange(tags.filter(t => t !== tag))}
             >
+              {tag} <X className="w-2.5 h-2.5 ml-0.5 inline" />
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ── Location Field with presets ───────────────────────────────────────────────
+
+const US_METROS = [
+  'New York, NY', 'San Francisco, CA', 'Seattle, WA', 'Austin, TX', 'Boston, MA',
+  'Chicago, IL', 'Los Angeles, CA', 'Washington, DC', 'Atlanta, GA', 'Denver, CO',
+  'Dallas, TX', 'Miami, FL', 'San Diego, CA', 'Portland, OR', 'Minneapolis, MN',
+  'Philadelphia, PA', 'Phoenix, AZ', 'Detroit, MI', 'Pittsburgh, PA', 'Raleigh, NC',
+  'Charlotte, NC', 'Salt Lake City, UT', 'Nashville, TN', 'Columbus, OH', 'Houston, TX',
+  'San Jose, CA', 'Palo Alto, CA', 'Menlo Park, CA', 'Mountain View, CA', 'Sunnyvale, CA',
+]
+
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
+  'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
+  'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
+  'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+  'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
+  'Wisconsin', 'Wyoming',
+]
+
+const EU_COUNTRIES = [
+  'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark',
+  'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy',
+  'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland', 'Portugal',
+  'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
+]
+
+const EU_METROS = [
+  'London, UK', 'Berlin, Germany', 'Amsterdam, Netherlands', 'Paris, France',
+  'Dublin, Ireland', 'Stockholm, Sweden', 'Zurich, Switzerland', 'Munich, Germany',
+  'Barcelona, Spain', 'Madrid, Spain', 'Warsaw, Poland', 'Vienna, Austria',
+  'Copenhagen, Denmark', 'Oslo, Norway', 'Helsinki, Finland', 'Brussels, Belgium',
+  'Rome, Italy', 'Milan, Italy', 'Lisbon, Portugal', 'Prague, Czech Republic',
+]
+
+const QUICK_PRESETS = [
+  { label: 'Remote', values: ['Remote'] },
+  { label: '🇺🇸 United States', values: ['United States'] },
+  { label: '🇪🇺 European Union', values: EU_COUNTRIES },
+  { label: 'NYC Metro', values: ['New York, NY', 'New Jersey', 'Connecticut'] },
+  { label: 'SF Bay Area', values: ['San Francisco, CA', 'San Jose, CA', 'Palo Alto, CA', 'Mountain View, CA', 'Sunnyvale, CA', 'Menlo Park, CA'] },
+  { label: 'Greater Seattle', values: ['Seattle, WA', 'Bellevue, WA', 'Redmond, WA'] },
+]
+
+function LocationField({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const [input, setInput] = useState('')
+  const [tab, setTab] = useState<'presets'|'metros'|'states'|'eu'>('presets')
+
+  function add(val: string) {
+    if (!val.trim() || tags.includes(val.trim())) return
+    onChange([...tags, val.trim()])
+  }
+
+  function addMany(vals: string[]) {
+    const toAdd = vals.filter(v => !tags.includes(v))
+    if (toAdd.length) onChange([...tags, ...toAdd])
+  }
+
+  function addInput() {
+    const val = input.trim()
+    if (!val || tags.includes(val)) return
+    onChange([...tags, val])
+    setInput('')
+  }
+
+  return (
+    <div>
+      <label className="text-xs text-text-3 mb-1 block">Locations</label>
+
+      {/* Manual input */}
+      <div className="flex gap-2 mb-2">
+        <input className="input flex-1" placeholder="Type a city, state, or country…"
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addInput() } }} />
+        <button type="button" onClick={addInput} className="btn-ghost px-3">Add</button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-2">
+        {(['presets','metros','states','eu'] as const).map(t => (
+          <button key={t} type="button" onClick={() => setTab(t)}
+            className={`text-2xs px-2 py-1 rounded font-mono transition-colors ${tab === t ? 'bg-accent-blue/20 text-accent-blue' : 'text-text-3 hover:text-text-2'}`}>
+            {t === 'presets' ? 'Quick' : t === 'metros' ? 'US Cities' : t === 'states' ? 'US States' : 'Europe'}
+          </button>
+        ))}
+      </div>
+
+      {/* Quick presets */}
+      {tab === 'presets' && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {QUICK_PRESETS.map(p => (
+            <button key={p.label} type="button" onClick={() => addMany(p.values)}
+              className="text-2xs px-2.5 py-1 rounded border border-surface-4 text-text-2 hover:border-accent-blue hover:text-accent-blue transition-colors">
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* US Metro cities */}
+      {tab === 'metros' && (
+        <div className="flex flex-wrap gap-1 mb-2 max-h-28 overflow-y-auto">
+          {US_METROS.map(m => (
+            <button key={m} type="button" onClick={() => add(m)}
+              className={`text-2xs px-2 py-0.5 rounded border transition-colors ${tags.includes(m) ? 'border-accent-blue text-accent-blue bg-accent-blue/10' : 'border-surface-4 text-text-3 hover:border-accent-blue hover:text-accent-blue'}`}>
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* US States */}
+      {tab === 'states' && (
+        <div className="flex flex-wrap gap-1 mb-2 max-h-28 overflow-y-auto">
+          {US_STATES.map(s => (
+            <button key={s} type="button" onClick={() => add(s)}
+              className={`text-2xs px-2 py-0.5 rounded border transition-colors ${tags.includes(s) ? 'border-accent-blue text-accent-blue bg-accent-blue/10' : 'border-surface-4 text-text-3 hover:border-accent-blue hover:text-accent-blue'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* EU */}
+      {tab === 'eu' && (
+        <div className="space-y-2 mb-2">
+          <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+            {EU_METROS.map(m => (
+              <button key={m} type="button" onClick={() => add(m)}
+                className={`text-2xs px-2 py-0.5 rounded border transition-colors ${tags.includes(m) ? 'border-accent-blue text-accent-blue bg-accent-blue/10' : 'border-surface-4 text-text-3 hover:border-accent-blue hover:text-accent-blue'}`}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+            {EU_COUNTRIES.map(c => (
+              <button key={c} type="button" onClick={() => add(c)}
+                className={`text-2xs px-2 py-0.5 rounded border transition-colors ${tags.includes(c) ? 'border-accent-blue text-accent-blue bg-accent-blue/10' : 'border-surface-4 text-text-3 hover:border-accent-blue hover:text-accent-blue'}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Selected tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {tags.map(tag => (
+            <span key={tag} className="pill pill-purple cursor-pointer text-2xs"
+              onClick={() => onChange(tags.filter(t => t !== tag))}>
               {tag} <X className="w-2.5 h-2.5 ml-0.5 inline" />
             </span>
           ))}
