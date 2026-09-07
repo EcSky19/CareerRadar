@@ -1,25 +1,58 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ingestionApi } from '@/lib/api'
+import { ingestionApi, companiesApi } from '@/lib/api'
 import { IngestionRun } from '@/types'
 import { formatRelative } from '@/lib/utils'
-import { RefreshCw, ChevronDown, ChevronRight, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronRight, AlertCircle, CheckCircle, Clock, Wrench } from 'lucide-react'
+
+const ERROR_FIXES: Record<string, string> = {
+  '404': 'Wrong ATS slug or company moved to a different ATS platform',
+  '401': 'ATS requires authentication — public API not available',
+  '403': 'Access denied — company blocks automated access',
+  '429': 'Rate limited — too many requests',
+  '526': 'SSL error on careers page',
+  'bot': 'Bot detection — company uses Cloudflare or similar protection',
+  'workday': 'Workday blocks public API access — no fix available',
+  'timeout': 'Server too slow to respond',
+}
+
+function getErrorType(msg: string): string {
+  if (!msg) return 'unknown'
+  if (msg.includes('404')) return '404'
+  if (msg.includes('401')) return '401'
+  if (msg.includes('403')) return '403'
+  if (msg.includes('429')) return '429'
+  if (msg.includes('526')) return '526'
+  if (msg.toLowerCase().includes('bot')) return 'bot'
+  if (msg.toLowerCase().includes('workday') || msg.toLowerCase().includes('wd5')) return 'workday'
+  if (msg.toLowerCase().includes('timeout')) return 'timeout'
+  return 'unknown'
+}
+
+function getErrorColor(type: string): string {
+  if (type === '404' || type === 'bot' || type === 'workday') return 'pill-amber'
+  if (type === '401' || type === '403') return 'pill-red'
+  return 'pill-red'
+}
 
 export default function LogsPage() {
   const [runs, setRuns]       = useState<IngestionRun[]>([])
   const [errors, setErrors]   = useState<any[]>([])
+  const [companies, setCompanies] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [runDetails, setRunDetails] = useState<Record<string, any>>({})
-  const [tab, setTab] = useState<'runs' | 'errors'>('runs')
+  const [tab, setTab] = useState<'runs' | 'errors' | 'companies'>'runs'')
 
   useEffect(() => {
     Promise.all([
       ingestionApi.runs(30) as Promise<IngestionRun[]>,
-      ingestionApi.errors(30) as Promise<any[]>,
-    ]).then(([r, e]) => {
+      ingestionApi.errors(50) as Promise<any[]>,
+      companiesApi.list() as Promise<any[]>,
+    ]).then(([r, e, c]) => {
       setRuns(r)
       setErrors(e)
+      setCompanies(c)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -31,6 +64,9 @@ export default function LogsPage() {
       setRunDetails(prev => ({ ...prev, [runId]: detail }))
     }
   }
+
+  const companiesWithErrors = companies.filter((c: any) => c.consecutive_errors > 0)
+    .sort((a: any, b: any) => b.consecutive_errors - a.consecutive_errors)
 
   const statusIcon: Record<string, React.ReactNode> = {
     completed: <CheckCircle className="w-3.5 h-3.5 text-green-400" />,
@@ -44,7 +80,7 @@ export default function LogsPage() {
       <div className="section-header">
         <h1 className="page-title">Ingestion Logs</h1>
         <div className="flex gap-1">
-          {(['runs', 'errors'] as const).map(t => (
+          {(['runs', 'errors', 'companies'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -54,7 +90,9 @@ export default function LogsPage() {
                   : 'text-text-3 hover:text-text-1 hover:bg-surface-3'
               }`}
             >
-              {t === 'runs' ? `Runs (${runs.length})` : `Errors (${errors.length})`}
+              {t === 'runs' ? `Runs (${runs.length})`
+               : t === 'errors' ? `Errors (${errors.length})`
+               : `Problem Companies (${companiesWithErrors.length})`}
             </button>
           ))}
         </div>
@@ -153,8 +191,7 @@ export default function LogsPage() {
               ))}
             </div>
           )
-        ) : (
-          // Errors tab
+        ) : tab === 'errors' ? (
           errors.length === 0 ? (
             <div className="p-12 text-center text-text-3 text-sm">No errors recorded.</div>
           ) : (
@@ -182,6 +219,44 @@ export default function LogsPage() {
                 ))}
               </tbody>
             </table>
+          )
+        ) : (
+          // Problem Companies tab
+          companiesWithErrors.length === 0 ? (
+            <div className="p-12 text-center text-text-3 text-sm">All companies scanning cleanly!</div>
+          ) : (
+            <div className="divide-y divide-surface-4">
+              <div className="px-6 py-3 bg-surface-2 text-xs text-text-3 flex items-center gap-2">
+                <Wrench className="w-3.5 h-3.5" />
+                <span>{companiesWithErrors.length} companies have recurring errors. These affect job coverage but do not break the platform.</span>
+              </div>
+              {companiesWithErrors.map((c: any) => {
+                const errType = getErrorType(c.last_error || '')
+                const fix = ERROR_FIXES[errType] || 'Unknown error — check error logs'
+                return (
+                  <div key={c.id} className="px-6 py-4 hover:bg-surface-3/30">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-text-1">{c.name}</span>
+                          <span className={`pill text-2xs ${getErrorColor(errType)}`}>{errType}</span>
+                          <span className="text-2xs text-text-3 font-mono">{c.ats_provider}</span>
+                          <span className="text-2xs text-red-400 font-mono">{c.consecutive_errors} errors</span>
+                        </div>
+                        <p className="text-xs text-text-3 mb-1">{c.last_error?.slice(0, 100)}</p>
+                        <p className="text-xs text-amber-400 flex items-center gap-1">
+                          <Wrench className="w-3 h-3" /> {fix}
+                        </p>
+                      </div>
+                      <a href={c.careers_url} target="_blank" rel="noopener noreferrer"
+                        className="text-2xs text-accent-blue hover:underline shrink-0">
+                        Visit careers page →
+                      </a>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )
         )}
       </div>
