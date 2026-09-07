@@ -10,6 +10,7 @@ class ATSProvider(str, Enum):
     lever            = "lever"
     ashby            = "ashby"
     workday          = "workday"
+    workday_cxs      = "workday_cxs"
     icims            = "icims"
     smartrecruiters  = "smartrecruiters"
     oracle_recruiting= "oracle_recruiting"
