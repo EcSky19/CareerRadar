@@ -32,7 +32,7 @@ def fk(ref: str, nullable: bool = False):
 
 # ── Enum string values (match SQL enums) ──────────────────────────────────────
 
-ATS_PROVIDERS = ("greenhouse","lever","ashby","workday","workday_cxs","icims",
+ATS_PROVIDERS = ("greenhouse","lever","ashby","workday","workday_cxs","jsearch","icims",
                  "smartrecruiters","oracle_recruiting","sap_successfactors",
                  "custom_html","unknown")
 
