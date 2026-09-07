@@ -39,6 +39,9 @@ from app.services.ingestion.lever import LeverAdapter
 from app.services.ingestion.ashby import AshbyAdapter
 from app.services.ingestion.html_adapter import GenericHTMLAdapter
 from app.services.ingestion.workday_cxs import WorkdayCXSAdapter
+from app.services.ingestion.jsearch import JSearchAdapter
+from app.services.ingestion.jsearch import JSearchAdapter
+from app.services.ingestion.jsearch import JSearchAdapter
 from app.services.matching.engine import MatchingEngine
 from app.services.matching.taxonomy import normalise_title_cached, infer_role_type
 from app.services.alert_service import AlertService
@@ -55,14 +58,66 @@ _ADAPTERS = {
     "custom_html":  GenericHTMLAdapter(),
     "unknown":      GenericHTMLAdapter(),
     "workday_cxs":  WorkdayCXSAdapter(),
+    "jsearch":      _jsearch_adapter,
+    "jsearch":      _jsearch_adapter,
+    "jsearch":      _jsearch_adapter,
 }
 
 _matching_engine = MatchingEngine()
+
+import os
+_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
+
+import os
+_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
+
+# JSearch adapter - initialized with API key from env
+import os
+_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
 
 
 # =============================================================================
 # PUBLIC ENTRY POINTS
 # =============================================================================
+
+SCAN_INTERVAL_HOURS = {
+    "greenhouse":   24,
+    "lever":        24,
+    "ashby":        24,
+    "workday_cxs":  48,
+    "jsearch":      168,   # weekly - Monday scans only
+    "workday":      168,
+    "custom_html":  168,
+    "unknown":      168,
+}
+
+def _is_due_for_scan(company) -> bool:
+    """Check if company is due for scanning based on ATS provider interval."""
+    if not company.last_checked_at:
+        return True
+    interval = SCAN_INTERVAL_HOURS.get(company.ats_provider, 168)
+    from datetime import timedelta
+    elapsed = datetime.now(timezone.utc) - company.last_checked_at.replace(tzinfo=timezone.utc)
+    return elapsed >= timedelta(hours=interval)
+
+SCAN_INTERVAL_HOURS = {
+    "greenhouse":   24,
+    "lever":        24,
+    "ashby":        24,
+    "workday_cxs":  48,
+    "jsearch":      168,
+    "workday":      168,
+    "custom_html":  168,
+    "unknown":      168,
+}
+
+def _is_due_for_scan(company) -> bool:
+    if not company.last_checked_at:
+        return True
+    interval = SCAN_INTERVAL_HOURS.get(company.ats_provider, 168)
+    from datetime import timedelta
+    elapsed = datetime.now(timezone.utc) - company.last_checked_at.replace(tzinfo=timezone.utc)
+    return elapsed >= timedelta(hours=interval)
 
 async def run_full_ingestion(
     db: AsyncSession,
@@ -79,6 +134,9 @@ async def run_full_ingestion(
     companies = result.scalars().all()
 
     for company in companies:
+        if not _is_due_for_scan(company):
+            logger.info("Skipping %s (not due for scan)", company.name)
+            continue
         await _ingest_company(company, run, db)
 
     run.status = "completed_with_errors" if run.error_count > 0 else "completed"
