@@ -7,7 +7,7 @@ Automated job monitoring and resume optimization platform for new grad and entry
 - 🤖 AI-powered job matching engine (100-point scoring)
 - 📊 Supports Greenhouse, Lever, Ashby, WorkdayCXS, JSearch adapters
 - 📧 Email alerts for high-score matches
-- 📄 Resume AI optimization
+- 📄 Resume AI optimization (coming soon)
 - 🗂️ Application tracker
 
 ## Tech Stack
