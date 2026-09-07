@@ -42,7 +42,7 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [runDetails, setRunDetails] = useState<Record<string, any>>({})
-  const [tab, setTab] = useState<'runs' | 'errors' | 'companies'>'runs'')
+  const [tab, setTab] = useState<'runs' | 'errors' | 'companies'>('runs')
 
   useEffect(() => {
     Promise.all([
