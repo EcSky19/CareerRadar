@@ -85,7 +85,7 @@ class LeverAdapter(JobSourceAdapter):
         commit   = cats.get("commitment")     # Full-time, Internship, etc.
 
         desc_parts = []
-        for section in raw.get("descriptionBody", {}).get("content", []):
+        for section in (raw.get("descriptionBody") or {}).get("content", []):
             desc_parts.append(section.get("text", ""))
         description = "\n".join(filter(None, desc_parts)) or raw.get("description", "")
 
