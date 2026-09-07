@@ -79,7 +79,8 @@ class LeverAdapter(JobSourceAdapter):
         title  = raw.get("text", "").strip()
 
         # Location: Lever returns a categories.location field
-        cats     = raw.get("categories", {})
+        cats     = raw.get("categories") or {}
+        cats     = cats if isinstance(cats, dict) else {}
         location = cats.get("location") or raw.get("workplaceType")
         dept     = cats.get("department") or cats.get("team")
         commit   = cats.get("commitment")     # Full-time, Internship, etc.

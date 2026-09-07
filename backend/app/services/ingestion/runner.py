@@ -38,6 +38,7 @@ from app.services.ingestion.greenhouse import GreenhouseAdapter
 from app.services.ingestion.lever import LeverAdapter
 from app.services.ingestion.ashby import AshbyAdapter
 from app.services.ingestion.html_adapter import GenericHTMLAdapter
+from app.services.ingestion.workday_cxs import WorkdayCXSAdapter
 from app.services.matching.engine import MatchingEngine
 from app.services.matching.taxonomy import normalise_title_cached, infer_role_type
 from app.services.alert_service import AlertService
@@ -53,6 +54,7 @@ _ADAPTERS = {
     "ashby":        AshbyAdapter(),
     "custom_html":  GenericHTMLAdapter(),
     "unknown":      GenericHTMLAdapter(),
+    "workday_cxs":  WorkdayCXSAdapter(),
 }
 
 _matching_engine = MatchingEngine()
