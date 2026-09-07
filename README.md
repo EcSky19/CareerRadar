@@ -8,7 +8,7 @@ Automated job monitoring and resume optimization platform for new grad and entry
 - 📊 Supports Greenhouse, Lever, Ashby, WorkdayCXS, JSearch adapters
 - 📧 Email alerts for high-score matches
 - 📄 Resume AI optimization (coming soon)
-- 🗂️ Application tracker
+- 🗂️ Application tracker (coming soon)
 
 ## Tech Stack
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS
