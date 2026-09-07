@@ -94,3 +94,4 @@ career-radar/
 Add two repository secrets:
 - `API_URL` — your Render service URL
 - `SERVICE_ROLE_JWT` — your Supabase service role key
+# streak 2026-09-07 00:44
