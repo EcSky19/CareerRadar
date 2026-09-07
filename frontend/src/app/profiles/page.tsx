@@ -43,7 +43,7 @@ export default function ProfilesPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
-    profilesApi.list(false).then((p: any) => setProfiles(p))
+    profilesApi.list().then((p: any) => setProfiles(p))
       .finally(() => setLoading(false))
   }, [])
 
