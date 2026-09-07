@@ -53,13 +53,8 @@ class AshbyAdapter(JobSourceAdapter):
         url = f"{ASHBY_API}/{slug}"
         async with build_http_client() as client:
             try:
-                resp = await client.post(
+                resp = await client.get(
                     url,
-                    json={
-                        "$type": "PostingsApiV2QueryRequest",
-                        "includeCompensation": True,
-                    },
-                    headers={"Content-Type": "application/json"},
                 )
             except httpx.RequestError as exc:
                 raise AdapterError(f"Network error fetching Ashby for {company.name}: {exc}")
@@ -93,7 +88,7 @@ class AshbyAdapter(JobSourceAdapter):
     def _normalize(self, raw: dict, company, slug: str) -> NormalizedJob:
         job_id   = raw.get("id", "")
         title    = (raw.get("title") or "").strip()
-        location = raw.get("locationName") or raw.get("location", {}).get("locationName")
+        location = raw.get("locationName") or (raw.get("location", {}) or {}).get("locationName") if isinstance(raw.get("location"), dict) else raw.get("location")
         dept     = raw.get("departmentName") or None
         emp_type = raw.get("employmentType")
         desc     = raw.get("descriptionHtml") or raw.get("description") or ""
