@@ -15,8 +15,8 @@ const NAV_ITEMS = [
   { href: '/jobs',       label: 'Career Matches', icon: Briefcase },
   { href: '/companies',  label: 'Companies',      icon: Building2 },
   { href: '/profiles',   label: 'Profiles',       icon: Target },
-  { href: '/resumes',    label: 'Resume AI',      icon: FileText },
-  { href: '/tracker',    label: 'Tracker',        icon: Kanban },
+  { href: '/resumes',    label: 'Resume AI (coming soon)',      icon: FileText },
+  { href: '/tracker',    label: 'Tracker (coming soon)',        icon: Kanban },
   { href: '/logs',       label: 'Logs',           icon: Activity },
   { href: '/settings',   label: 'Settings',       icon: Settings },
 ]
