@@ -33,8 +33,7 @@ class JSearchAdapter(JobSourceAdapter):
         all_jobs = []
         # Search for software/tech roles at this company
         queries = [
-            f"software engineer {company.name}",
-            f"new grad {company.name}",
+            f"software engineer early career new grad 2026 2027 {company.name}",
         ]
 
         async with httpx.AsyncClient(timeout=20) as client:
