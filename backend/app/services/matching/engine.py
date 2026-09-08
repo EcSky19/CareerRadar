@@ -126,6 +126,12 @@ class MatchingEngine:
         result.location_score, result.matched_location_terms = self._score_location(
             job.location or "", profile.desired_locations, profile.remote_preference
         )
+        # Hard disqualify if location set but job is clearly outside desired locations
+        if profile.desired_locations and result.location_score < 0:
+            result.match_score = 0
+            result.match_reason = "Location mismatch — job is outside your desired locations"
+            result.is_match = False
+            return result
 
         # ── 4. Keyword score (15 pts) ─────────────────────────────────────────
         result.keyword_score, result.matched_keywords = self._score_keywords(
@@ -271,16 +277,96 @@ class MatchingEngine:
         ):
             return 10, ["remote"]
 
+        US_GEO = {
+            "alabama","al","alaska","ak","arizona","az","arkansas","ar","california","ca",
+            "colorado","co","connecticut","ct","delaware","de","florida","fl","georgia","ga",
+            "hawaii","hi","idaho","id","illinois","il","indiana","in","iowa","ia","kansas","ks",
+            "kentucky","ky","louisiana","la","maine","me","maryland","md","massachusetts","ma",
+            "michigan","mi","minnesota","mn","mississippi","ms","missouri","mo","montana","mt",
+            "nebraska","ne","nevada","nv","new hampshire","nh","new jersey","nj","new mexico","nm",
+            "new york","ny","north carolina","nc","north dakota","nd","ohio","oh","oklahoma","ok",
+            "oregon","or","pennsylvania","pa","rhode island","ri","south carolina","sc",
+            "south dakota","sd","tennessee","tn","texas","tx","utah","ut","vermont","vt",
+            "virginia","va","washington","wa","west virginia","wv","wisconsin","wi","wyoming","wy",
+            "washington dc","d.c.","district of columbia","puerto rico","united states","usa",
+            "san francisco","palo alto","menlo park","mountain view","sunnyvale","santa clara",
+            "san jose","redwood city","cupertino","fremont","oakland","berkeley","san mateo",
+            "south san francisco","seattle","bellevue","redmond","kirkland","bothell","renton",
+            "new york city","nyc","manhattan","brooklyn","queens","bronx","jersey city","hoboken",
+            "stamford","new haven","hartford","boston","cambridge","waltham","lexington","somerville",
+            "chicago","evanston","naperville","schaumburg","austin","round rock","cedar park",
+            "dallas","plano","irving","frisco","mckinney","richardson","houston","sugar land",
+            "woodlands","atlanta","alpharetta","marietta","sandy springs","roswell","denver",
+            "boulder","aurora","lakewood","los angeles","santa monica","culver city","el segundo",
+            "irvine","anaheim","san diego","la jolla","carlsbad","raleigh","durham","chapel hill",
+            "cary","charlotte","greensboro","miami","fort lauderdale","boca raton","orlando","tampa",
+            "minneapolis","st. paul","bloomington","eden prairie","phoenix","scottsdale","tempe",
+            "chandler","gilbert","mesa","portland","beaverton","hillsboro","salt lake city","provo",
+            "pittsburgh","philadelphia","nashville","memphis","knoxville","columbus","cleveland",
+            "cincinnati","kansas city","st. louis","detroit","ann arbor","grand rapids","las vegas",
+            "henderson","reno","indianapolis","carmel","fishers","milwaukee","madison","richmond",
+            "norfolk","virginia beach","arlington","alexandria","mclean","bethesda","rockville",
+            "silver spring","baltimore","omaha","albuquerque","tucson","honolulu","anchorage",
+            "boise","louisville","new orleans","oklahoma city","tulsa","birmingham","huntsville",
+            "remote","us remote","remote us","anywhere in us","u.s.","u.s.a.",
+        }
+        INTL = {
+            "london","uk","united kingdom","england","germany","india","canada","australia",
+            "singapore","japan","china","france","netherlands","ireland","sweden","berlin",
+            "toronto","amsterdam","sydney","bangalore","delhi","mumbai","dublin","paris",
+            "madrid","barcelona","zurich","geneva","warsaw","prague","budapest","vienna",
+            "brussels","copenhagen","stockholm","helsinki","oslo","lisbon","rome","milan",
+            "moscow","beijing","shanghai","hong kong","seoul","taipei","mexico city",
+        }
+        us_desired = any(l.lower() in ("united states","us","usa","u.s.","u.s.a.") for l in desired_locations)
         for loc in desired_locations:
             if loc.lower() in job_loc_lower or job_loc_lower in loc.lower():
                 matched.append(loc)
-
+        if not matched and us_desired:
+            import re
+            # Use word boundary matching to avoid false positives like "nd" in "london"
+            words_in_loc = set(re.findall(r'[a-z]+', job_loc_lower))
+            # Check full state names and major cities (not abbreviations)
+            US_GEO_FULL = {
+                "alabama","alaska","arizona","arkansas","california","colorado",
+                "connecticut","delaware","florida","georgia","hawaii","idaho",
+                "illinois","indiana","iowa","kansas","kentucky","louisiana","maine",
+                "maryland","massachusetts","michigan","minnesota","mississippi",
+                "missouri","montana","nebraska","nevada","hampshire","jersey",
+                "mexico","york","carolina","dakota","ohio","oklahoma","oregon",
+                "pennsylvania","island","tennessee","texas","utah","vermont",
+                "virginia","washington","wisconsin","wyoming","columbia",
+                "francisco","angeles","seattle","chicago","boston","austin",
+                "dallas","houston","atlanta","denver","phoenix","portland",
+                "diego","antonio","jose","francisco","palo","menlo","sunnyvale",
+                "cupertino","redmond","bellevue","kirkland","manhattan","brooklyn",
+                "cambridge","somerville","evanston","naperville","alpharetta",
+                "boulder","irvine","anaheim","raleigh","durham","charlotte",
+                "minneapolis","scottsdale","tempe","chandler","gilbert","mesa",
+                "beaverton","hillsboro","provo","pittsburgh","philadelphia",
+                "nashville","memphis","columbus","cleveland","cincinnati",
+                "detroit","vegas","henderson","indianapolis","milwaukee","madison",
+                "richmond","norfolk","bethesda","rockville","baltimore","omaha",
+                "albuquerque","tucson","honolulu","anchorage","boise","louisville",
+                "orleans","oklahoma","tulsa","birmingham","huntsville","remote",
+            }
+            if words_in_loc & US_GEO_FULL:
+                matched.append("United States")
         if matched:
             return 10, matched
-
         if not desired_locations:
             return 5, []
-
+        INTL = {
+            "london","england","germany","india","canada","australia","singapore",
+            "japan","china","france","netherlands","ireland","sweden","berlin",
+            "toronto","amsterdam","sydney","bangalore","delhi","mumbai","dublin",
+            "paris","madrid","barcelona","zurich","geneva","warsaw","prague",
+            "budapest","vienna","brussels","copenhagen","stockholm","helsinki",
+            "oslo","lisbon","rome","milan","moscow","beijing","shanghai",
+            "hong","seoul","taipei","mexico","ontario","british","quebec",
+        }
+        if us_desired and (words_in_loc if 'words_in_loc' in dir() else set(re.findall(r'[a-z]+', job_loc_lower))) & INTL:
+            return -15, []
         return 0, []
 
     def _score_keywords(
