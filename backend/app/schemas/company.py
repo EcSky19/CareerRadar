@@ -58,6 +58,7 @@ class CompanyUpdate(BaseModel):
     notes: Optional[str] = None
     is_active: Optional[bool] = None
     category_ids: Optional[List[UUID]] = None
+    scan_tier: Optional[int] = None
 
 
 class ATSDetectRequest(BaseModel):
@@ -93,6 +94,7 @@ class CompanyResponse(BaseModel):
     last_successful_check_at: Optional[datetime]
     last_error: Optional[str]
     consecutive_errors: int
+    scan_tier: Optional[int] = 1
     total_jobs_found: int
     total_matching_jobs: int
     categories: List[CategoryBrief] = []
