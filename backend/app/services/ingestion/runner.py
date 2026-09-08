@@ -51,29 +51,18 @@ logger = logging.getLogger(__name__)
 # Days after which a possibly_closed job is marked fully closed
 CLOSE_AFTER_DAYS = 3
 
+import os
+_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
+
 _ADAPTERS = {
     "greenhouse":   GreenhouseAdapter(),
     "lever":        LeverAdapter(),
     "ashby":        AshbyAdapter(),
     "custom_html":  GenericHTMLAdapter(),
     "unknown":      GenericHTMLAdapter(),
-    "workday_cxs":  WorkdayCXSAdapter(),
-    "jsearch":      _jsearch_adapter,
-    "jsearch":      _jsearch_adapter,
-    "jsearch":      _jsearch_adapter,
-}
+    "workday_cxs":  WorkdayCXSAdapter(),}
 
 _matching_engine = MatchingEngine()
-
-import os
-_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
-
-import os
-_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
-
-# JSearch adapter - initialized with API key from env
-import os
-_jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
 
 
 # =============================================================================
@@ -104,8 +93,7 @@ SCAN_INTERVAL_HOURS = {
     "greenhouse":   24,
     "lever":        24,
     "ashby":        24,
-    "workday_cxs":  48,
-    "jsearch":      168,
+    "workday_cxs":  48,    "jsearch":      168,
     "workday":      168,
     "custom_html":  168,
     "unknown":      168,
@@ -114,9 +102,22 @@ SCAN_INTERVAL_HOURS = {
 def _is_due_for_scan(company) -> bool:
     if not company.last_checked_at:
         return True
-    interval = SCAN_INTERVAL_HOURS.get(company.ats_provider, 168)
     from datetime import timedelta
-    elapsed = datetime.now(timezone.utc) - company.last_checked_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    elapsed = now - company.last_checked_at.replace(tzinfo=timezone.utc)
+
+    if company.ats_provider == 'jsearch':
+        tier = getattr(company, 'scan_tier', 1) or 1
+        # Find next Monday
+        days_until_monday = (7 - now.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 7
+        # Tier 1: every Monday (7 days)
+        # Tier 2: every other Monday (14 days)
+        interval_days = 7 if tier == 1 else 14
+        return elapsed >= timedelta(days=interval_days)
+
+    interval = SCAN_INTERVAL_HOURS.get(company.ats_provider, 168)
     return elapsed >= timedelta(hours=interval)
 
 async def run_full_ingestion(
