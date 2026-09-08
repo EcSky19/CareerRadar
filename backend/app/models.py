@@ -128,6 +128,7 @@ class Company(Base):
     last_successful_check_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[Optional[str]]   = mapped_column(Text)
     consecutive_errors: Mapped[int]     = mapped_column(SmallInteger, default=0, nullable=False)
+    scan_tier: Mapped[Optional[int]]    = mapped_column(Integer, default=1, nullable=True)
     total_jobs_found: Mapped[int]       = mapped_column(Integer, default=0, nullable=False)
     total_matching_jobs: Mapped[int]    = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime]        = now_col()
