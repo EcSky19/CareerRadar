@@ -172,9 +172,9 @@ class GenericHTMLAdapter(JobSourceAdapter):
         return results
 
     def _normalize_script_item(self, item: dict, company, base_url: str) -> Optional[NormalizedJob]:
-        title = (
+        title = str(
             item.get("title") or item.get("name") or
-            item.get("position") or item.get("role", "")
+            item.get("position") or item.get("role") or ""
         ).strip()
         if not title:
             return None
