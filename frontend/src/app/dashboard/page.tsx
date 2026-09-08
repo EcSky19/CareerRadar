@@ -171,10 +171,16 @@ export default function DashboardPage() {
                 <RunStat label="New matches"       value={lastRun.matches_found} accent="green" />
                 <RunStat label="Alerts sent"       value={lastRun.alerts_sent} accent="amber" />
                 <RunStat label="Errors"            value={lastRun.error_count} accent={lastRun.error_count > 0 ? "red" : undefined} />
-                <div className="pt-2 border-t border-surface-4">
+                <div className="pt-2 border-t border-surface-4 space-y-1">
+                  <p className="text-2xs text-text-3 font-mono">
+                    {new Date(lastRun.started_at).toLocaleString('en-US', {
+                      month: 'short', day: 'numeric', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit', hour12: true
+                    })}
+                  </p>
                   <p className="text-2xs text-text-3 font-mono">
                     {lastRun.duration_seconds != null
-                      ? `${lastRun.duration_seconds.toFixed(0)}s`
+                      ? `Duration: ${lastRun.duration_seconds.toFixed(0)}s`
                       : 'In progress…'}
                   </p>
                 </div>
