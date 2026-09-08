@@ -20,7 +20,7 @@ export default function CompaniesPage() {
   // Form state
   const [form, setForm] = useState({
     name: '', careers_url: '', ats_provider: 'unknown',
-    ats_slug: '', priority: 'medium', notes: '', category_ids: [] as string[],
+    ats_slug: '', priority: 'medium', notes: '', category_ids: [] as string[], scan_tier: 1,
   })
   const [detectResult, setDetectResult] = useState<any>(null)
 
@@ -35,7 +35,7 @@ export default function CompaniesPage() {
   }, [])
 
   async function startEdit(c: any) {
-    setForm({ name: c.name, careers_url: c.careers_url ?? '', ats_provider: c.ats_provider, ats_slug: c.ats_slug ?? '', priority: c.priority, notes: c.notes ?? '', category_ids: c.categories?.map((cat: any) => cat.id) ?? [] })
+    setForm({ name: c.name, careers_url: c.careers_url ?? '', ats_provider: c.ats_provider, ats_slug: c.ats_slug ?? '', priority: c.priority, notes: c.notes ?? '', category_ids: c.categories?.map((cat: any) => cat.id) ?? [], scan_tier: c.scan_tier ?? 1 })
     setEditingId(c.id)
     setShowForm(true)
     setDetectResult(null)
@@ -45,7 +45,7 @@ export default function CompaniesPage() {
     const updated = await companiesApi.update(editingId, form) as any
     setCompanies(prev => prev.map(c => c.id === editingId ? updated : c))
     setShowForm(false); setEditingId(null)
-    setForm({ name: '', careers_url: '', ats_provider: 'unknown', ats_slug: '', priority: 'medium', notes: '', category_ids: [] })
+    setForm({ name: '', careers_url: '', ats_provider: 'unknown', ats_slug: '', priority: 'medium', notes: '', category_ids: [], scan_tier: 1 })
     setDetectResult(null)
   }
   async function detectAts() {
@@ -70,7 +70,7 @@ export default function CompaniesPage() {
     setCompanies(prev => [company, ...prev])
     setShowForm(false)
     setForm({ name: '', careers_url: '', ats_provider: 'unknown',
-              ats_slug: '', priority: 'medium', notes: '', category_ids: [] })
+              ats_slug: '', priority: 'medium', notes: '', category_ids: [], scan_tier: 1 })
     setDetectResult(null)
   }
 
@@ -203,7 +203,18 @@ export default function CompaniesPage() {
               <button onClick={editingId ? saveEdit : createCompany} disabled={!form.name} className="btn-primary">
                 {editingId ? 'Save Changes' : 'Add Company'}
               </button>
-              <button onClick={() => { setShowForm(false); setDetectResult(null); setEditingId(null); setForm({ name: '', careers_url: '', ats_provider: 'unknown', ats_slug: '', priority: 'medium', notes: '', category_ids: [] }) }} className="btn-ghost">
+              {form.ats_provider === 'jsearch' && (
+                <div>
+                  <p className="text-xs text-text-3 mb-1">JSearch Scan Tier</p>
+                  <select className="input w-full"
+                    value={form.scan_tier}
+                    onChange={e => setForm(f => ({ ...f, scan_tier: Number(e.target.value) }))}>
+                    <option value={1}>Tier 1 — Every Monday (~4 calls/month)</option>
+                    <option value={2}>Tier 2 — Every Other Monday (~2 calls/month)</option>
+                  </select>
+                </div>
+              )}
+              <button onClick={() => { setShowForm(false); setDetectResult(null); setEditingId(null); setForm({ name: '', careers_url: '', ats_provider: 'unknown', ats_slug: '', priority: 'medium', notes: '', category_ids: [], scan_tier: 1 }) }} className="btn-ghost">
                 Cancel
               </button>
             </div>
