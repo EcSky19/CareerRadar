@@ -26,3 +26,25 @@
 - Greenhouse, Lever, Ashby adapters
 - Matching engine with 100-point scoring
 - Frontend with Dashboard, Companies, Jobs, Profiles, Logs pages
+
+## v0.3.0 — 2026-09-09
+### Added
+- GitHub jobs adapter — scrapes 7 community repos daily (free, unlimited)
+- JSearch broad search — 5 queries cover all companies (5 calls/scan)
+- Direct ATS filter — only Greenhouse/Lever/Ashby/WorkdayCXS scan per-company
+- Fresh session per company — prevents transaction corruption
+- Timeout handling per company — scan never hangs
+
+### Changed
+- JSearch no longer searches per-company (was 55 calls, now 5)
+- All custom_html companies now covered by GitHub + JSearch broad
+- Scan architecture: Direct ATS + GitHub + JSearch broad
+
+### Sources
+- SimplifyJobs/New-Grad-Positions
+- SimplifyJobs/Summer2027-Internships
+- jobright-ai/2026-Software-Engineer-New-Grad
+- zapplyjobs/New-Grad-Software-Engineering-Jobs-2027
+- vanshb03/New-Grad-2027
+- vanshb03/Summer2027-Internships
+- speedyapply/2027-SWE-College-Jobs
