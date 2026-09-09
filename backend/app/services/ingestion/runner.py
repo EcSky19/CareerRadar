@@ -138,40 +138,52 @@ async def run_full_ingestion(
     companies = result.scalars().all()
 
     # Only scan direct ATS companies — GitHub/JSearch cover the rest
+    # Only scan direct ATS companies — GitHub/JSearch cover the rest
     DIRECT_ATS = {'greenhouse', 'lever', 'ashby', 'workday_cxs'}
+
+    # Track counters as plain ints — don't touch db between companies
+    companies_checked = 0
+    new_jobs_found = 0
+    matches_found = 0
+    alerts_sent = 0
+    error_count = 0
+
     for company in companies:
         if company.ats_provider not in DIRECT_ATS:
             continue
         try:
             from app.database import AsyncSessionLocal
             async with AsyncSessionLocal() as company_db:
-                # Refresh run and company in new session
-                from sqlalchemy import select as sa_select
-                fresh_run = await company_db.get(IngestionRun, run.id)
                 fresh_company = await company_db.get(Company, company.id)
+                fresh_run = await company_db.get(IngestionRun, run.id)
                 await asyncio.wait_for(
                     _ingest_company(fresh_company, fresh_run, company_db),
-                    timeout=60
+                    timeout=120
                 )
-                # Sync counters back to main run
-                run.companies_checked = fresh_run.companies_checked
-                run.new_jobs_found = fresh_run.new_jobs_found
-                run.matches_found = fresh_run.matches_found
-                run.error_count = fresh_run.error_count
-                run.alerts_sent = fresh_run.alerts_sent
+                companies_checked += 1
+                new_jobs_found += fresh_run.new_jobs_found
+                matches_found += fresh_run.matches_found
+                alerts_sent += fresh_run.alerts_sent
         except asyncio.TimeoutError:
             logger.warning("Timeout scanning %s — skipping", company.name)
-            run.error_count += 1
+            error_count += 1
         except Exception as e:
             logger.warning("Error scanning %s: %s", company.name, e)
-            run.error_count += 1
-    # ── GitHub Jobs (free, all companies at once) ─────────────────────────
+            error_count += 1
+
+    # Update run with final counters
+    run.companies_checked = companies_checked
+    run.new_jobs_found = new_jobs_found
+    run.matches_found = matches_found
+    run.alerts_sent = alerts_sent
+    run.error_count = error_count
     try:
-        logger.info("Starting GitHub jobs scan...")
+        await db.commit()
+    except Exception:
+        await db.rollback()
         from app.database import AsyncSessionLocal
-        from collections import defaultdict
         async with AsyncSessionLocal() as gh_db:
-            result = await gh_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
+            result = await gh_db.execute(select(Company).where(Company.is_active == True))
             all_companies = result.scalars().all()
             company_names = {c.name for c in all_companies}
             company_map = {c.name: c for c in all_companies}
@@ -186,8 +198,8 @@ async def run_full_ingestion(
                 if not company:
                     continue
                 try:
-                    new_jobs_list, _ = await _upsert_jobs(jobs, company, gh_db)
-                    new_gh += len(new_jobs_list)
+                    new_list, _ = await _upsert_jobs(jobs, company, gh_db)
+                    new_gh += len(new_list)
                 except Exception as e:
                     logger.warning("GitHub upsert error for %s: %s", company_name, e)
                     try:
@@ -206,7 +218,7 @@ async def run_full_ingestion(
         from app.database import AsyncSessionLocal
         from collections import defaultdict
         async with AsyncSessionLocal() as js_db:
-            result = await js_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
+            result = await js_db.execute(select(Company).where(Company.is_active == True))
             all_companies = result.scalars().all()
             company_names = {c.name for c in all_companies}
             company_map = {c.name: c for c in all_companies}
@@ -221,8 +233,8 @@ async def run_full_ingestion(
                 if not company:
                     continue
                 try:
-                    new_jobs_list, _ = await _upsert_jobs(jobs, company, js_db)
-                    new_js += len(new_jobs_list)
+                    new_list, _ = await _upsert_jobs(jobs, company, js_db)
+                    new_js += len(new_list)
                 except Exception as e:
                     logger.warning("JSearch upsert error for %s: %s", company_name, e)
                     try:
@@ -305,6 +317,7 @@ async def run_single_company(
     try:
         logger.info("Starting JSearch broad scan (5 queries)...")
         from app.database import AsyncSessionLocal
+        from collections import defaultdict
         async with AsyncSessionLocal() as js_db:
          result = await js_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
          all_companies = result.scalars().all()
