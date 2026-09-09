@@ -15,6 +15,7 @@ Pipeline per company:
 """
 
 from __future__ import annotations
+import asyncio
 
 import logging
 import traceback
@@ -40,8 +41,7 @@ from app.services.ingestion.ashby import AshbyAdapter
 from app.services.ingestion.html_adapter import GenericHTMLAdapter
 from app.services.ingestion.workday_cxs import WorkdayCXSAdapter
 from app.services.ingestion.jsearch import JSearchAdapter
-from app.services.ingestion.jsearch import JSearchAdapter
-from app.services.ingestion.jsearch import JSearchAdapter
+from app.services.ingestion.github_jobs import GitHubJobsAdapter
 from app.services.matching.engine import MatchingEngine
 from app.services.matching.taxonomy import normalise_title_cached, infer_role_type
 from app.services.alert_service import AlertService
@@ -53,6 +53,7 @@ CLOSE_AFTER_DAYS = 3
 
 import os
 _jsearch_adapter = JSearchAdapter(api_key=os.getenv("JSEARCH_API_KEY", ""))
+_github_adapter = GitHubJobsAdapter()
 
 _ADAPTERS = {
     "greenhouse":   GreenhouseAdapter(),
@@ -60,7 +61,9 @@ _ADAPTERS = {
     "ashby":        AshbyAdapter(),
     "custom_html":  GenericHTMLAdapter(),
     "unknown":      GenericHTMLAdapter(),
-    "workday_cxs":  WorkdayCXSAdapter(),}
+    "workday_cxs":  WorkdayCXSAdapter(),
+    "jsearch":      _jsearch_adapter,
+}
 
 _matching_engine = MatchingEngine()
 
@@ -134,11 +137,103 @@ async def run_full_ingestion(
     )
     companies = result.scalars().all()
 
+    # Only scan direct ATS companies — GitHub/JSearch cover the rest
+    DIRECT_ATS = {'greenhouse', 'lever', 'ashby', 'workday_cxs'}
     for company in companies:
-        if not _is_due_for_scan(company):
-            logger.info("Skipping %s (not due for scan)", company.name)
+        if company.ats_provider not in DIRECT_ATS:
             continue
-        await _ingest_company(company, run, db)
+        try:
+            from app.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as company_db:
+                # Refresh run and company in new session
+                from sqlalchemy import select as sa_select
+                fresh_run = await company_db.get(IngestionRun, run.id)
+                fresh_company = await company_db.get(Company, company.id)
+                await asyncio.wait_for(
+                    _ingest_company(fresh_company, fresh_run, company_db),
+                    timeout=60
+                )
+                # Sync counters back to main run
+                run.companies_checked = fresh_run.companies_checked
+                run.new_jobs_found = fresh_run.new_jobs_found
+                run.matches_found = fresh_run.matches_found
+                run.error_count = fresh_run.error_count
+                run.alerts_sent = fresh_run.alerts_sent
+        except asyncio.TimeoutError:
+            logger.warning("Timeout scanning %s — skipping", company.name)
+            run.error_count += 1
+        except Exception as e:
+            logger.warning("Error scanning %s: %s", company.name, e)
+            run.error_count += 1
+    # ── GitHub Jobs (free, all companies at once) ─────────────────────────
+    try:
+        logger.info("Starting GitHub jobs scan...")
+        from app.database import AsyncSessionLocal
+        from collections import defaultdict
+        async with AsyncSessionLocal() as gh_db:
+            result = await gh_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
+            all_companies = result.scalars().all()
+            company_names = {c.name for c in all_companies}
+            company_map = {c.name: c for c in all_companies}
+            gh_jobs = await _github_adapter.fetch_all_jobs(company_names)
+            logger.info("GitHub: fetched %d matching jobs", len(gh_jobs))
+            gh_by_company = defaultdict(list)
+            for job in gh_jobs:
+                gh_by_company[job.company_name].append(job)
+            new_gh = 0
+            for company_name, jobs in gh_by_company.items():
+                company = company_map.get(company_name)
+                if not company:
+                    continue
+                try:
+                    new_jobs_list, _ = await _upsert_jobs(jobs, company, gh_db)
+                    new_gh += len(new_jobs_list)
+                except Exception as e:
+                    logger.warning("GitHub upsert error for %s: %s", company_name, e)
+                    try:
+                        await gh_db.rollback()
+                    except Exception:
+                        pass
+            await gh_db.commit()
+            run.new_jobs_found += new_gh
+            logger.info("GitHub: %d new jobs added", new_gh)
+    except Exception as e:
+        logger.warning("GitHub scan error: %s", e)
+
+    # ── JSearch Broad Search (5 calls, catches all companies) ─────────────
+    try:
+        logger.info("Starting JSearch broad scan (5 queries)...")
+        from app.database import AsyncSessionLocal
+        from collections import defaultdict
+        async with AsyncSessionLocal() as js_db:
+            result = await js_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
+            all_companies = result.scalars().all()
+            company_names = {c.name for c in all_companies}
+            company_map = {c.name: c for c in all_companies}
+            js_jobs = await _jsearch_adapter.fetch_broad_jobs(company_names)
+            logger.info("JSearch broad: fetched %d matching jobs", len(js_jobs))
+            js_by_company = defaultdict(list)
+            for job in js_jobs:
+                js_by_company[job.company_name].append(job)
+            new_js = 0
+            for company_name, jobs in js_by_company.items():
+                company = company_map.get(company_name)
+                if not company:
+                    continue
+                try:
+                    new_jobs_list, _ = await _upsert_jobs(jobs, company, js_db)
+                    new_js += len(new_jobs_list)
+                except Exception as e:
+                    logger.warning("JSearch upsert error for %s: %s", company_name, e)
+                    try:
+                        await js_db.rollback()
+                    except Exception:
+                        pass
+            await js_db.commit()
+            run.new_jobs_found += new_js
+            logger.info("JSearch broad: %d new jobs added", new_js)
+    except Exception as e:
+        logger.warning("JSearch broad scan error: %s", e)
 
     run.status = "completed_with_errors" if run.error_count > 0 else "completed"
     run.finished_at = datetime.now(timezone.utc)
@@ -166,6 +261,82 @@ async def run_single_company(
         raise ValueError(f"Company {company_id} not found")
 
     check_log = await _ingest_company(company, run, db)
+
+    # ── GitHub Jobs (free, all companies at once) ─────────────────────────
+    try:
+        logger.info("Starting GitHub jobs scan...")
+        from app.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as gh_db:
+         result = await gh_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
+         all_companies = result.scalars().all()
+         company_names = {c.name for c in all_companies}
+         company_map = {c.name: c for c in all_companies}
+
+        gh_jobs = await _github_adapter.fetch_all_jobs(company_names)
+        logger.info("GitHub: fetched %d matching jobs", len(gh_jobs))
+
+        # Group by company
+        from collections import defaultdict
+        gh_by_company = defaultdict(list)
+        for job in gh_jobs:
+            gh_by_company[job.company_name].append(job)
+
+        new_gh = 0
+        for company_name, jobs in gh_by_company.items():
+            company = company_map.get(company_name)
+            if not company:
+                continue
+            try:
+                new_count, _ = await _upsert_jobs(jobs, company, db)
+                new_gh += new_count
+            except Exception as e:
+                logger.warning("GitHub upsert error for %s: %s", company_name, e)
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+        await db.commit()
+        run.new_jobs_found += new_gh
+        logger.info("GitHub: %d new jobs added", new_gh)
+    except Exception as e:
+        logger.warning("GitHub scan error: %s", e)
+
+    # ── JSearch Broad Search (5 calls, catches all companies) ─────────────
+    try:
+        logger.info("Starting JSearch broad scan (5 queries)...")
+        from app.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as js_db:
+         result = await js_db.execute(select(Company).where(Company.is_active == True).execution_options(populate_existing=True))
+         all_companies = result.scalars().all()
+         company_names = {c.name for c in all_companies}
+         company_map = {c.name: c for c in all_companies}
+
+        js_jobs = await _jsearch_adapter.fetch_broad_jobs(company_names)
+        logger.info("JSearch broad: fetched %d matching jobs", len(js_jobs))
+
+        js_by_company = defaultdict(list)
+        for job in js_jobs:
+            js_by_company[job.company_name].append(job)
+
+        new_js = 0
+        for company_name, jobs in js_by_company.items():
+            company = company_map.get(company_name)
+            if not company:
+                continue
+            try:
+                new_count, _ = await _upsert_jobs(jobs, company, db)
+                new_js += new_count
+            except Exception as e:
+                logger.warning("JSearch upsert error for %s: %s", company_name, e)
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+        await db.commit()
+        run.new_jobs_found += new_js
+        logger.info("JSearch broad: %d new jobs added", new_js)
+    except Exception as e:
+        logger.warning("JSearch broad scan error: %s", e)
 
     run.status = "completed_with_errors" if run.error_count > 0 else "completed"
     run.finished_at = datetime.now(timezone.utc)
@@ -286,6 +457,10 @@ async def _ingest_company(
         company.consecutive_errors += 1
         run.error_count += 1
         run.companies_checked += 1
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         await db.commit()
 
     return check_log
