@@ -158,7 +158,7 @@ async def run_full_ingestion(
                 fresh_run = await company_db.get(IngestionRun, run.id)
                 await asyncio.wait_for(
                     _ingest_company(fresh_company, fresh_run, company_db),
-                    timeout=120
+                    timeout=180
                 )
                 companies_checked += 1
                 new_jobs_found += fresh_run.new_jobs_found
