@@ -44,6 +44,19 @@ def _build_response(company: Company) -> CompanyResponse:
     ]
     data = CompanyResponse.model_validate(company)
     data.categories = cats
+    # Count actual matches from JobMatch table
+    try:
+        from app.models import JobMatch, Job
+        match_count = sum(
+            1 for j in (company.jobs or [])
+            if any(True for m in (j.matches or []))
+        )
+        data.total_matching_jobs = len([
+            j for j in (company.jobs or [])
+            if j.matches
+        ])
+    except Exception:
+        data.total_matching_jobs = 0
     return data
 
 
@@ -97,7 +110,36 @@ async def list_companies(
 
     result = await db.execute(q)
     companies = result.scalars().all()
-    return [_build_response(c) for c in companies]
+
+    # Get job counts and match counts per company efficiently
+    from app.models import JobMatch, Job
+    from sqlalchemy import func
+    company_ids = [c.id for c in companies]
+
+    # Total jobs per company
+    job_counts_result = await db.execute(
+        select(Job.company_id, func.count(Job.id))
+        .where(Job.company_id.in_(company_ids))
+        .group_by(Job.company_id)
+    )
+    job_counts = {row[0]: row[1] for row in job_counts_result.fetchall()}
+
+    # Match counts per company
+    match_counts_result = await db.execute(
+        select(Job.company_id, func.count(JobMatch.id))
+        .join(JobMatch, JobMatch.job_id == Job.id)
+        .where(Job.company_id.in_(company_ids))
+        .group_by(Job.company_id)
+    )
+    match_counts = {row[0]: row[1] for row in match_counts_result.fetchall()}
+
+    responses = []
+    for c in companies:
+        r = _build_response(c)
+        r.total_jobs_found = job_counts.get(c.id, 0)
+        r.total_matching_jobs = match_counts.get(c.id, 0)
+        responses.append(r)
+    return responses
 
 
 @router.get("/{company_id}", response_model=CompanyResponse)
