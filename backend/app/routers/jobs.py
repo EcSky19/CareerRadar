@@ -26,6 +26,7 @@ class JobMatchResponse(BaseModel):
     location: Optional[str]
     is_remote: Optional[bool]
     application_url: str
+    company_careers_url: Optional[str] = None
     posted_at: Optional[object]
     match_score: int
     match_reason: Optional[str]
@@ -64,9 +65,10 @@ async def list_job_matches(
     db: AsyncSession            = Depends(get_db),
 ):
     q = (
-        select(JobMatch, Job, TargetProfile)
+        select(JobMatch, Job, TargetProfile, Company)
         .join(Job, Job.id == JobMatch.job_id)
         .join(TargetProfile, TargetProfile.id == JobMatch.target_profile_id)
+        .join(Company, Company.id == Job.company_id)
         .where(
             JobMatch.user_id == user['id'],
             JobMatch.match_score.between(min_score, max_score),
@@ -109,6 +111,7 @@ async def list_job_matches(
             "location": job.location,
             "is_remote": job.is_remote,
             "application_url": job.application_url,
+            "company_careers_url": company.careers_url if company else None,
             "posted_at": job.posted_at.isoformat() if job.posted_at else None,
             "job_status": job.status,
             "match_score": match.match_score,
@@ -124,7 +127,7 @@ async def list_job_matches(
             "application_status": app_by_job.get(str(job.id), "not_applied"),
             "first_seen_at": match.created_at.isoformat(),
         }
-        for match, job, profile in rows
+        for match, job, profile, company in rows
     ]
 
 
@@ -322,6 +325,7 @@ async def list_tracked_applications(
             "company_name": job.company_name,
             "location": job.location,
             "application_url": job.application_url,
+            "company_careers_url": company.careers_url if company else None,
             "status": app.status,
             "applied_at": app.applied_at.isoformat() if app.applied_at else None,
             "follow_up_date": str(app.follow_up_date) if app.follow_up_date else None,
