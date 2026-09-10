@@ -247,6 +247,57 @@ async def run_full_ingestion(
     except Exception as e:
         logger.warning("JSearch broad scan error: %s", e)
 
+    # ── Auto-run matching engine after scan ──────────────────────────────
+    try:
+        logger.info("Running matching engine...")
+        from app.database import AsyncSessionLocal
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        async with AsyncSessionLocal() as match_db:
+            profiles_result = await match_db.execute(
+                select(TargetProfile).where(TargetProfile.is_active == True)
+                .options(selectinload(TargetProfile.category_filters),
+                         selectinload(TargetProfile.company_filters))
+            )
+            profiles = profiles_result.scalars().all()
+            companies_q = await match_db.execute(select(Company))
+            company_map = {c.id: c for c in companies_q.scalars().all()}
+            jobs_q = await match_db.execute(select(Job))
+            jobs = jobs_q.scalars().all()
+            new_matches = 0
+            for job in jobs:
+                company = company_map.get(job.company_id)
+                if not company:
+                    continue
+                for profile in profiles:
+                    try:
+                        result = _matching_engine.score(job, profile, company, [])
+                        if result.match_score >= profile.minimum_match_score:
+                            stmt = pg_insert(JobMatch).values(
+                                user_id=profile.user_id,
+                                job_id=job.id,
+                                target_profile_id=profile.id,
+                                match_score=result.match_score,
+                                title_score=result.title_score,
+                                role_type_score=result.role_type_score,
+                                location_score=result.location_score,
+                                keyword_score=result.keyword_score,
+                                category_score=result.category_score,
+                                domain_score=result.domain_score,
+                                priority_score=result.priority_score,
+                                freshness_score=result.freshness_score,
+                                campus_score=result.campus_score,
+                                match_reason=result.match_reason,
+                            ).on_conflict_do_nothing()
+                            await match_db.execute(stmt)
+                            new_matches += 1
+                    except Exception:
+                        pass
+            await match_db.commit()
+            run.matches_found = new_matches
+            logger.info("Matching complete: %d matches", new_matches)
+    except Exception as e:
+        logger.warning("Auto-matching error: %s", e)
+
     run.status = "completed_with_errors" if run.error_count > 0 else "completed"
     run.finished_at = datetime.now(timezone.utc)
     await db.commit()
@@ -350,6 +401,57 @@ async def run_single_company(
         logger.info("JSearch broad: %d new jobs added", new_js)
     except Exception as e:
         logger.warning("JSearch broad scan error: %s", e)
+
+    # ── Auto-run matching engine after scan ──────────────────────────────
+    try:
+        logger.info("Running matching engine...")
+        from app.database import AsyncSessionLocal
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        async with AsyncSessionLocal() as match_db:
+            profiles_result = await match_db.execute(
+                select(TargetProfile).where(TargetProfile.is_active == True)
+                .options(selectinload(TargetProfile.category_filters),
+                         selectinload(TargetProfile.company_filters))
+            )
+            profiles = profiles_result.scalars().all()
+            companies_q = await match_db.execute(select(Company))
+            company_map = {c.id: c for c in companies_q.scalars().all()}
+            jobs_q = await match_db.execute(select(Job))
+            jobs = jobs_q.scalars().all()
+            new_matches = 0
+            for job in jobs:
+                company = company_map.get(job.company_id)
+                if not company:
+                    continue
+                for profile in profiles:
+                    try:
+                        result = _matching_engine.score(job, profile, company, [])
+                        if result.match_score >= profile.minimum_match_score:
+                            stmt = pg_insert(JobMatch).values(
+                                user_id=profile.user_id,
+                                job_id=job.id,
+                                target_profile_id=profile.id,
+                                match_score=result.match_score,
+                                title_score=result.title_score,
+                                role_type_score=result.role_type_score,
+                                location_score=result.location_score,
+                                keyword_score=result.keyword_score,
+                                category_score=result.category_score,
+                                domain_score=result.domain_score,
+                                priority_score=result.priority_score,
+                                freshness_score=result.freshness_score,
+                                campus_score=result.campus_score,
+                                match_reason=result.match_reason,
+                            ).on_conflict_do_nothing()
+                            await match_db.execute(stmt)
+                            new_matches += 1
+                    except Exception:
+                        pass
+            await match_db.commit()
+            run.matches_found = new_matches
+            logger.info("Matching complete: %d matches", new_matches)
+    except Exception as e:
+        logger.warning("Auto-matching error: %s", e)
 
     run.status = "completed_with_errors" if run.error_count > 0 else "completed"
     run.finished_at = datetime.now(timezone.utc)
