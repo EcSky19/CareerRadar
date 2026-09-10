@@ -86,10 +86,15 @@ def _extract_url(text: str) -> Optional[str]:
     """Extract first https URL from markdown cell."""
     match = re.search(r'\[(?:[^\]]*)\]\((https?://[^\)]+)\)', text)
     if match:
-        return match.group(1)
-    match = re.search(r'https?://\S+', text)
+        url = match.group(1)
+        # Clean HTML artifacts
+        url = url.split('"')[0].split("'")[0].split('<')[0].strip()
+        if url.startswith('http'):
+            return url
+    match = re.search(r'https?://[^\s"'<>]+', text)
     if match:
-        return match.group(0).rstrip(')')
+        url = match.group(0).rstrip(').,')
+        return url
     return None
 
 
@@ -179,6 +184,23 @@ def _row_to_job(row: dict, repo_type: str) -> Optional[dict]:
         if url:
             apply_url = url
             break
+
+    # Validate apply URL
+    if apply_url:
+        # Reject clearly wrong domains
+        bad_domains = ['arch.co', 'arch.com', 'statefarm.com', 
+                       'glassdoor.com/job-listing', 'google.com/search']
+        if any(bad in apply_url.lower() for bad in bad_domains):
+            apply_url = ""
+        
+        # Prefer direct ATS links over company homepage
+        good_domains = ['greenhouse.io', 'lever.co', 'ashbyhq.com', 
+                        'workday.com', 'myworkdayjobs.com', 'linkedin.com/jobs',
+                        'simplify.jobs', 'jobright.ai', 'careers.']
+        has_good_link = any(good in apply_url.lower() for good in good_domains)
+        # If URL is just company homepage (no path depth), deprioritize
+        if not has_good_link and apply_url.count('/') <= 3:
+            apply_url = ""
 
     return {
         "company": company,
