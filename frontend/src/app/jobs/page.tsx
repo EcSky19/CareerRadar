@@ -148,7 +148,7 @@ export default function JobsPage() {
                             ? <BookmarkCheck className="w-3.5 h-3.5 text-accent-blue" />
                             : <Bookmark className="w-3.5 h-3.5 text-text-3" />}
                         </button>
-                        <a href={m.application_url} target="_blank" rel="noopener noreferrer"
+                        <a href={m.application_url || m.company_careers_url || '#'} target="_blank" rel="noopener noreferrer"
                           className="p-1 rounded hover:bg-surface-4 transition-colors">
                           <ExternalLink className="w-3.5 h-3.5 text-text-3" />
                         </a>
@@ -223,10 +223,10 @@ function MatchDetailPanel({ match, onClose, onStatusChange }: {
             ))}
           </select>
         </div>
-        <a href={match.application_url} target="_blank" rel="noopener noreferrer"
+        <a href={match.application_url || match.company_careers_url || '#'} target="_blank" rel="noopener noreferrer"
           className="btn-primary w-full justify-center">
           <ExternalLink className="w-3.5 h-3.5" />
-          Apply Now
+          {match.application_url ? 'Apply Now' : 'Visit Careers Page'}
         </a>
       </div>
     </aside>
