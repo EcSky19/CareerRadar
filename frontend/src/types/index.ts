@@ -69,6 +69,7 @@ export interface JobMatch {
   location?: string
   is_remote?: boolean
   application_url: string
+  company_careers_url?: string
   posted_at?: string
   job_status: JobStatus
   match_score: number
@@ -92,6 +93,7 @@ export interface TrackedApplication {
   company_name: string
   location?: string
   application_url: string
+  company_careers_url?: string
   status: ApplicationStatus
   applied_at?: string
   follow_up_date?: string
