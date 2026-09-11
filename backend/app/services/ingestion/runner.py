@@ -298,9 +298,21 @@ async def run_full_ingestion(
     except Exception as e:
         logger.warning("Auto-matching error: %s", e)
 
-    run.status = "completed_with_errors" if run.error_count > 0 else "completed"
-    run.finished_at = datetime.now(timezone.utc)
-    await db.commit()
+    # Update run status in fresh session to ensure it always saves
+    final_status = "completed_with_errors" if run.error_count > 0 else "completed"
+    from app.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as final_db:
+        fresh_run = await final_db.get(IngestionRun, run.id)
+        if fresh_run:
+            fresh_run.status = final_status
+            fresh_run.finished_at = datetime.now(timezone.utc)
+            fresh_run.companies_checked = run.companies_checked
+            fresh_run.new_jobs_found = run.new_jobs_found
+            fresh_run.matches_found = run.matches_found
+            fresh_run.error_count = run.error_count
+            fresh_run.alerts_sent = run.alerts_sent
+            await final_db.commit()
+    run.status = final_status
     logger.info(
         "Ingestion run complete: %d companies, %d new jobs, %d matches, %d alerts",
         run.companies_checked, run.new_jobs_found, run.matches_found, run.alerts_sent
@@ -453,9 +465,21 @@ async def run_single_company(
     except Exception as e:
         logger.warning("Auto-matching error: %s", e)
 
-    run.status = "completed_with_errors" if run.error_count > 0 else "completed"
-    run.finished_at = datetime.now(timezone.utc)
-    await db.commit()
+    # Update run status in fresh session to ensure it always saves
+    final_status = "completed_with_errors" if run.error_count > 0 else "completed"
+    from app.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as final_db:
+        fresh_run = await final_db.get(IngestionRun, run.id)
+        if fresh_run:
+            fresh_run.status = final_status
+            fresh_run.finished_at = datetime.now(timezone.utc)
+            fresh_run.companies_checked = run.companies_checked
+            fresh_run.new_jobs_found = run.new_jobs_found
+            fresh_run.matches_found = run.matches_found
+            fresh_run.error_count = run.error_count
+            fresh_run.alerts_sent = run.alerts_sent
+            await final_db.commit()
+    run.status = final_status
     return check_log
 
 
