@@ -249,7 +249,7 @@ async def run_full_ingestion(
 
     # ── Auto-run matching engine after scan ──────────────────────────────
     try:
-        logger.info("Running matching engine...")
+        logger.info("Running matching engine (background)...")
         from app.database import AsyncSessionLocal
         from sqlalchemy.dialects.postgresql import insert as pg_insert
         async with AsyncSessionLocal() as match_db:
@@ -261,10 +261,18 @@ async def run_full_ingestion(
             profiles = profiles_result.scalars().all()
             companies_q = await match_db.execute(select(Company))
             company_map = {c.id: c for c in companies_q.scalars().all()}
+            # Only score jobs not already matched to avoid slow full rescan
+            already_matched = set()
+            existing = await match_db.execute(select(JobMatch.job_id))
+            for row in existing.fetchall():
+                already_matched.add(row[0])
+
             jobs_q = await match_db.execute(select(Job))
             jobs = jobs_q.scalars().all()
             new_matches = 0
             for job in jobs:
+                if job.id in already_matched:
+                    continue
                 company = company_map.get(job.company_id)
                 if not company:
                     continue
@@ -416,7 +424,7 @@ async def run_single_company(
 
     # ── Auto-run matching engine after scan ──────────────────────────────
     try:
-        logger.info("Running matching engine...")
+        logger.info("Running matching engine (background)...")
         from app.database import AsyncSessionLocal
         from sqlalchemy.dialects.postgresql import insert as pg_insert
         async with AsyncSessionLocal() as match_db:
@@ -428,10 +436,18 @@ async def run_single_company(
             profiles = profiles_result.scalars().all()
             companies_q = await match_db.execute(select(Company))
             company_map = {c.id: c for c in companies_q.scalars().all()}
+            # Only score jobs not already matched to avoid slow full rescan
+            already_matched = set()
+            existing = await match_db.execute(select(JobMatch.job_id))
+            for row in existing.fetchall():
+                already_matched.add(row[0])
+
             jobs_q = await match_db.execute(select(Job))
             jobs = jobs_q.scalars().all()
             new_matches = 0
             for job in jobs:
+                if job.id in already_matched:
+                    continue
                 company = company_map.get(job.company_id)
                 if not company:
                     continue
