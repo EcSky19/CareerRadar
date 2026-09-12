@@ -91,7 +91,7 @@ def _extract_url(text: str) -> Optional[str]:
         url = url.split('"')[0].split("'")[0].split('<')[0].strip()
         if url.startswith('http'):
             return url
-    match = re.search(r'https?://[^\s"'<>]+', text)
+    match = re.search(r'https?://[^\s<>"]+', text)
     if match:
         url = match.group(0).rstrip(').,')
         return url
