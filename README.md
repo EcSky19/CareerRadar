@@ -48,3 +48,4 @@ Searches LinkedIn, Indeed, Glassdoor, ZipRecruiter via OpenWebNinja API.
 
 ## Setup
 See backend/.env.example for required environment variables.
+
